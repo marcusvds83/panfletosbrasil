@@ -4,13 +4,13 @@ import { db } from '@/lib/db'
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ mid: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getSession()
     if (!session || session.tipo !== 'admin') return NextResponse.json({ erro: 'Não autorizado' }, { status: 401 })
-    const { mid } = await params
-    await db.mercado.delete(mid)
+    const { id } = await params
+    await db.mercado.delete(id)
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ erro: 'Erro ao excluir mercado' }, { status: 500 })
