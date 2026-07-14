@@ -155,6 +155,16 @@ export const demoDb = {
     findUnique: async (w: { where: { email: string } }) => {
       return admins.find((a) => a.email === w.where.email) || null
     },
+
+    create: async (data: Record<string, any>) => {
+      const novo: Admin = {
+        id: uid('admin'),
+        email: data.email,
+        senhaHash: data.senhaHash,
+      }
+      admins.push(novo)
+      return { ...novo }
+    },
   },
 
   mercado: {

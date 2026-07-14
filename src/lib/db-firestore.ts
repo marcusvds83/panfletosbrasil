@@ -52,6 +52,11 @@ export const db = {
       const d = snap.docs[0]
       return d ? { id: d.id, ...d.data() } : null
     },
+
+    create: async (data: Record<string, any>) => {
+      const ref = await addDoc(collection(firestore as any, COLS.admins), data)
+      return { id: ref.id, ...data }
+    },
   },
 
   // ── Mercado ─────────────────────────────────────────────────────────────
