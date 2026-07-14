@@ -132,6 +132,14 @@ function formatCNPJ(v: string) {
     .replace(/(\d{4})(\d)/, '$1-$2')
 }
 
+function formatCPF(v: string) {
+  const d = v.replace(/\D/g, '').slice(0, 11)
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2')
+}
+
 function LoginForm({ onLogin }: { onLogin: () => void }) {
   const [tab, setTab] = useState<'pf' | 'pj'>('pf')
 
@@ -140,11 +148,18 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
   const [modoCadastro, setModoCadastro] = useState(false)
   const [nomeCadastro, setNomeCadastro] = useState('')
 
-  // PJ (Mercado) — CNPJ + e-mail + senha
+  // PJ (Mercado) — CNPJ + e-mail + senha + cadastro
   const [cnpj, setCnpj] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [loading, setLoading] = useState(false)
+  const [modoCadastroPj, setModoCadastroPj] = useState(false)
+  const [nomeMercado, setNomeMercado] = useState('')
+  const [responsavel, setResponsavel] = useState('')
+  const [cpf, setCpf] = useState('')
+  const [cidade, setCidade] = useState('')
+  const [estado, setEstado] = useState('')
+  const [telefone, setTelefone] = useState('')
 
   const handleSocialLogin = async (provider: 'google') => {
     setSocialLoading(provider)
@@ -258,6 +273,51 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
       onLogin()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao fazer login')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePjCadastro = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const cnpjLimpo = cnpj.replace(/\D/g, '')
+    const cpfLimpo = cpf.replace(/\D/g, '')
+    if (!nomeMercado || !cnpjLimpo || !email || !senha || !cidade || !estado || !responsavel || !cpfLimpo) {
+      toast.error('Preencha todos os campos obrigatórios')
+      return
+    }
+    if (cnpjLimpo.length !== 14) {
+      toast.error('CNPJ inválido. Digite 14 dígitos.')
+      return
+    }
+    if (cpfLimpo.length !== 11) {
+      toast.error('CPF inválido. Digite 11 dígitos.')
+      return
+    }
+    if (senha.length < 6) {
+      toast.error('Senha deve ter no mínimo 6 caracteres')
+      return
+    }
+    setLoading(true)
+    try {
+      await api('/api/auth/cadastro-mercado', {
+        method: 'POST',
+        body: JSON.stringify({
+          nome: nomeMercado,
+          cnpj: cnpjLimpo,
+          email,
+          senha,
+          cidade,
+          estado,
+          responsavel,
+          cpf: cpfLimpo,
+          telefone,
+        }),
+      })
+      toast.success('Mercado cadastrado! 60 dias de piloto grátis.')
+      onLogin()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao cadastrar mercado')
     } finally {
       setLoading(false)
     }
@@ -378,55 +438,184 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
               )}
             </TabsContent>
 
-            {/* ── PJ: CNPJ + e-mail + senha ── */}
+            {/* ── PJ: Login + Cadastro de Mercado ── */}
             <TabsContent value="pj" className="space-y-3 mt-4">
-              <form onSubmit={handlePjLogin} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="m-cnpj" className="text-sm">CNPJ</Label>
-                  <Input
-                    id="m-cnpj"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="00.000.000/0000-00"
-                    value={cnpj}
-                    onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
-                    autoComplete="organization-id"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="m-email" className="text-sm">E-mail</Label>
-                  <Input
-                    id="m-email"
-                    type="email"
-                    placeholder="seu@mercado.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="m-senha" className="text-sm">Senha</Label>
-                  <Input
-                    id="m-senha"
-                    type="password"
-                    placeholder="••••••••"
-                    value={senha}
-                    onChange={(e) => setSenha(e.target.value)}
-                    autoComplete="current-password"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white h-11"
-                  disabled={loading}
-                >
-                  {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Entrar como Mercado
-                </Button>
-              </form>
-              <p className="text-[11px] text-gray-400 text-center pt-1">
-                Precisa de cadastro? Solicite ao admin.
-              </p>
+              {!modoCadastroPj ? (
+                <>
+                  <form onSubmit={handlePjLogin} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="m-cnpj" className="text-sm">CNPJ</Label>
+                      <Input
+                        id="m-cnpj"
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="00.000.000/0000-00"
+                        value={cnpj}
+                        onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
+                        autoComplete="organization-id"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="m-email" className="text-sm">E-mail</Label>
+                      <Input
+                        id="m-email"
+                        type="email"
+                        placeholder="seu@mercado.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="email"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="m-senha" className="text-sm">Senha</Label>
+                      <Input
+                        id="m-senha"
+                        type="password"
+                        placeholder="••••••••"
+                        value={senha}
+                        onChange={(e) => setSenha(e.target.value)}
+                        autoComplete="current-password"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white h-11"
+                      disabled={loading}
+                    >
+                      {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Entrar como Mercado
+                    </Button>
+                  </form>
+                  <p className="text-[11px] text-gray-400 text-center pt-1">
+                    Não tem conta?{' '}
+                    <button
+                      type="button"
+                      onClick={() => setModoCadastroPj(true)}
+                      className="text-red-600 font-semibold hover:underline"
+                    >
+                      Cadastre seu mercado grátis
+                    </button>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 text-center mb-2">
+                    Cadastre seu mercado — 60 dias de piloto grátis
+                  </p>
+                  <form onSubmit={handlePjCadastro} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Nome do mercado *</Label>
+                      <Input
+                        type="text"
+                        placeholder="Supermercado Exemplo"
+                        value={nomeMercado}
+                        onChange={(e) => setNomeMercado(e.target.value)}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">CNPJ *</Label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="00.000.000/0000-00"
+                          value={cnpj}
+                          onChange={(e) => setCnpj(formatCNPJ(e.target.value))}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Telefone</Label>
+                        <Input
+                          type="text"
+                          placeholder="(11) 99999-9999"
+                          value={telefone}
+                          onChange={(e) => setTelefone(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Responsável *</Label>
+                        <Input
+                          type="text"
+                          placeholder="Nome do responsável"
+                          value={responsavel}
+                          onChange={(e) => setResponsavel(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">CPF *</Label>
+                        <Input
+                          type="text"
+                          inputMode="numeric"
+                          placeholder="000.000.000-00"
+                          value={cpf}
+                          onChange={(e) => setCpf(formatCPF(e.target.value))}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">E-mail *</Label>
+                      <Input
+                        type="email"
+                        placeholder="contato@mercado.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        autoComplete="email"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">Cidade *</Label>
+                        <Input
+                          type="text"
+                          placeholder="São Paulo"
+                          value={cidade}
+                          onChange={(e) => setCidade(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-sm">UF *</Label>
+                        <Input
+                          type="text"
+                          maxLength={2}
+                          placeholder="SP"
+                          value={estado}
+                          onChange={(e) => setEstado(e.target.value.toUpperCase())}
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Senha (mín. 6 caracteres) *</Label>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        value={senha}
+                        onChange={(e) => setSenha(e.target.value)}
+                        autoComplete="new-password"
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white h-11"
+                      disabled={loading}
+                    >
+                      {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Cadastrar Mercado
+                    </Button>
+                  </form>
+                  <p className="text-[11px] text-gray-400 text-center pt-1">
+                    Já tem conta?{' '}
+                    <button
+                      type="button"
+                      onClick={() => setModoCadastroPj(false)}
+                      className="text-red-600 font-semibold hover:underline"
+                    >
+                      Fazer login
+                    </button>
+                  </p>
+                </>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>

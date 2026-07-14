@@ -6,14 +6,18 @@ let _app: App | null = null
 let _db: Firestore | null = null
 let _auth: Auth | null = null
 let _configured = false
+let _initAttempted = false
 
 /** Returns true when all required NEXT_PUBLIC_FIREBASE_* env vars are present */
 export function isFirebaseConfigured(): boolean {
+  // Força init se ainda não tentou
+  if (!_initAttempted) initFirebase()
   return _configured
 }
 
 function initFirebase() {
-  if (_app) return
+  if (_initAttempted) return
+  _initAttempted = true
 
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY
   const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
@@ -24,21 +28,26 @@ function initFirebase() {
     return
   }
 
-  _configured = true
+  try {
+    _configured = true
+    _app = getApps().length === 0
+      ? initializeApp({
+          apiKey,
+          authDomain,
+          projectId,
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
+          messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
+          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
+        })
+      : getApps()[0]
 
-  _app = getApps().length === 0
-    ? initializeApp({
-        apiKey,
-        authDomain,
-        projectId,
-        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || '',
-        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '',
-        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
-      })
-    : getApps()[0]
-
-  _db = getFirestore(_app)
-  _auth = getAuth(_app)
+    _db = getFirestore(_app)
+    _auth = getAuth(_app)
+    console.log('[Firebase] Inicializado com sucesso. Project:', projectId)
+  } catch (e) {
+    console.error('[Firebase] Erro ao inicializar:', e)
+    _configured = false
+  }
 }
 
 export function getFirebaseApp(): App | null {
@@ -56,24 +65,13 @@ export function getFirebaseAuth(): Auth | null {
   return _auth
 }
 
-// Lazy exports - only init when actually accessed
-export const firebaseApp = new Proxy({} as App, {
-  get(_, prop) {
-    const app = getFirebaseApp()
-    return app ? (app as any)[prop] : undefined
-  },
-})
+/**
+ * Eager exports — chama initFirebase() no momento do import.
+ * Diferente do Proxy, exporta a instância REAL do Firestore (ou null),
+ * para que collection(db, 'usuarios') funcione corretamente.
+ */
+initFirebase()
 
-export const firestore = new Proxy({} as Firestore, {
-  get(_, prop) {
-    const db = getFirebaseDb()
-    return db ? (db as any)[prop] : undefined
-  },
-})
-
-export const firebaseAuth = new Proxy({} as Auth, {
-  get(_, prop) {
-    const auth = getFirebaseAuth()
-    return auth ? (auth as any)[prop] : undefined
-  },
-})
+export const firebaseApp = _app
+export const firestore = _db as Firestore
+export const firebaseAuth = _auth as Auth

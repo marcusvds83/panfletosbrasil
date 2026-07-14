@@ -437,6 +437,10 @@ export const demoDb = {
       }
       return null
     },
+
+    findMany: async () => {
+      return usuarios.map((u) => ({ ...u }))
+    },
   },
 }
 
