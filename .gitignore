@@ -23,3 +23,9 @@ apk-project/build/
 # IDE
 .vscode/
 .idea/
+
+# Non-app directories
+skills/
+upload/
+download/
+tool-results/
