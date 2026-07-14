@@ -1,2 +1,25 @@
-skills/
 node_modules/
+.next/
+.env
+.env.local
+*.db
+*.db-journal
+/prisma/migrations/
+tmp/
+uploads/
+*.log
+.DS_Store
+
+# Android build tools
+jdk-17/
+android-sdk/
+*.class
+*.dex
+*.apk
+*.idsig
+*.keystore
+apk-project/build/
+
+# IDE
+.vscode/
+.idea/
