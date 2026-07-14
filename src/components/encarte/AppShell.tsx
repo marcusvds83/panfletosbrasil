@@ -124,14 +124,9 @@ const TABS: TabDef[] = [
     key: 'mercado',
     label: 'Mercado',
     icon: <Store className="h-5 w-5" />,
-    showWhen: () => true,
+    showWhen: (s) => s?.tipo === 'mercado',
   },
-  {
-    key: 'admin',
-    label: 'Admin',
-    icon: <ShieldCheck className="h-5 w-5" />,
-    showWhen: () => true,
-  },
+  // Admin NÃO aparece no app (mobile nem desktop) — só via URL /admin separada
 ]
 
 // ── EB Logo ─────────────────────────────────────────────────────────────────
@@ -284,6 +279,21 @@ export default function AppShell() {
           Carregando...
         </motion.p>
       </div>
+    )
+  }
+
+  // ── Login obrigatório — sem sessão, mostra apenas o LoginForm ─────────
+  // Ninguém entra no app sem se logar como Mercado ou Consumidor.
+  // Admin só acessa via URL direta /admin (rota separada, desktop).
+  if (!session) {
+    return (
+      <SessionCtx.Provider value={null}>
+        <div className="min-h-screen flex flex-col bg-gradient-to-b from-orange-50 to-white">
+          <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 flex items-center justify-center">
+            <MarketPanel onLogout={handleLogout} onLogin={checkAuth} />
+          </main>
+        </div>
+      </SessionCtx.Provider>
     )
   }
 
