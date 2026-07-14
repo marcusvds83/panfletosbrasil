@@ -14,6 +14,7 @@ import {
   GitCompareArrows,
   ShoppingCart,
   Store,
+  ShieldCheck,
   LogOut,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -27,7 +28,7 @@ import AdminPanel from './AdminPanel'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export type TabId = 'home' | 'comparar' | 'lista' | 'conta'
+export type TabId = 'home' | 'comparar' | 'lista' | 'mercado' | 'admin'
 
 export interface AuthUser {
   tipo: 'mercado' | 'admin' | 'usuario'
@@ -120,9 +121,15 @@ const TABS: TabDef[] = [
     showWhen: () => true,
   },
   {
-    key: 'conta',
-    label: 'Contas',
+    key: 'mercado',
+    label: 'Mercado',
     icon: <Store className="h-5 w-5" />,
+    showWhen: () => true,
+  },
+  {
+    key: 'admin',
+    label: 'Admin',
+    icon: <ShieldCheck className="h-5 w-5" />,
     showWhen: () => true,
   },
 ]
@@ -131,26 +138,23 @@ const TABS: TabDef[] = [
 
 function EbLogo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   const sizes = {
-    sm: 'h-7 w-7 text-xs',
-    md: 'h-9 w-9 text-sm',
-    lg: 'h-16 w-16 text-2xl',
+    sm: 'h-8 w-8',
+    md: 'h-9 w-9',
+    lg: 'h-16 w-16',
   }
   return (
-    <div
-      className={cn(
-        'rounded-full bg-white/20 flex items-center justify-center font-extrabold text-white shrink-0',
-        sizes[size],
-      )}
-    >
-      EB
-    </div>
+    <img
+      src="/icon-192.png"
+      alt="EncarteBrasil"
+      className={cn('rounded-lg object-cover shrink-0 shadow-sm', sizes[size])}
+    />
   )
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function AppShell() {
-  const [tab, setTab] = useState<TabId>('conta')
+  const [tab, setTab] = useState<TabId>('home')
   const [session, setSession] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -171,7 +175,7 @@ export default function AppShell() {
         })
         // After login, navigate to home (admin/mercado will see their panel via conta tab)
         if (data.tipo === 'admin' || data.tipo === 'mercado') {
-          setTab('conta')
+          setTab('mercado')
         } else if (data.tipo === 'usuario') {
           setTab('home')
         }
@@ -197,7 +201,7 @@ export default function AppShell() {
       /* ignore */
     }
     setSession(null)
-    setTab('conta')
+    setTab('mercado')
     toast.success('Sessão encerrada')
   }, [])
 
@@ -232,20 +236,31 @@ export default function AppShell() {
   const renderView = (t: TabId) => {
     switch (t) {
       case 'home':
-        return <HomeView sessionId={sessionId} onAddToList={handleAddToList} />
+        return (
+          <HomeView
+            sessionId={sessionId}
+            onAddToList={handleAddToList}
+            onPainelMercado={() => setTab('mercado')}
+            onPainelAdmin={() => setTab('admin')}
+          />
+        )
       case 'comparar':
         return <CompareView />
       case 'lista':
         return <MyListView sessionId={sessionId} />
-      case 'conta':
-        if (session?.tipo === 'admin')
-          return <AdminPanel onLogout={handleLogout} onLogin={checkAuth} />
-        if (session?.tipo === 'mercado')
-          return <MarketPanel onLogout={handleLogout} onLogin={checkAuth} />
-        // Not logged in or usuario -> show login form
+      case 'mercado':
         return <MarketPanel onLogout={handleLogout} onLogin={checkAuth} />
+      case 'admin':
+        return <AdminPanel onLogout={handleLogout} onLogin={checkAuth} />
       default:
-        return <HomeView sessionId={sessionId} onAddToList={handleAddToList} />
+        return (
+          <HomeView
+            sessionId={sessionId}
+            onAddToList={handleAddToList}
+            onPainelMercado={() => setTab('mercado')}
+            onPainelAdmin={() => setTab('admin')}
+          />
+        )
     }
   }
 
