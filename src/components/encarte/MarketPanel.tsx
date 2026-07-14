@@ -147,8 +147,19 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
   const handleSocialLogin = async (provider: 'google') => {
     setSocialLoading(provider)
     try {
+      // Check if Firebase is configured before attempting social login
+      const { isFirebaseConfigured } = await import('@/lib/firebase')
+      if (!isFirebaseConfigured()) {
+        toast.error('Login com Google indisponível no momento. O Firebase precisa ser configurado no servidor.', { duration: 6000 })
+        return
+      }
+
       const { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider } = await import('firebase/auth')
       const auth = getAuth()
+      if (!auth) {
+        toast.error('Firebase não inicializado. Contate o administrador.')
+        return
+      }
 
       // Check if we're returning from a redirect
       const result = await getRedirectResult(auth)

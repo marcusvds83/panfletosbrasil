@@ -332,7 +332,10 @@ export default function AppShell() {
         </header>
 
         {/* ── Main Content ────────────────────────────────────────────── */}
-        <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-28 lg:pb-6">
+        <main className={cn(
+          'flex-1 max-w-6xl mx-auto w-full px-4 py-4',
+          session ? 'pb-28 lg:pb-6' : 'pb-6',
+        )}>
           <AnimatePresence mode="wait">
             <motion.div
               key={tab}
@@ -346,33 +349,35 @@ export default function AppShell() {
           </AnimatePresence>
         </main>
 
-        {/* ── Bottom Nav (Mobile) ─────────────────────────────────────── */}
-        <nav
-          className={cn(
-            'lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-50',
-            'pb-[env(safe-area-inset-bottom,0px)]',
-          )}
-        >
-          <div className="flex justify-around items-center h-14">
-            {visibleTabs.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={cn(
-                  'flex flex-col items-center justify-center py-1.5 px-3 text-xs transition-colors min-w-[56px]',
-                  tab === t.key
-                    ? 'text-red-600'
-                    : 'text-gray-400 hover:text-gray-600',
-                )}
-              >
-                {t.icon}
-                <span className="mt-0.5 font-medium leading-tight">
-                  {t.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </nav>
+        {/* ── Bottom Nav (Mobile) — hidden when not logged in ───────── */}
+        {session && (
+          <nav
+            className={cn(
+              'lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-50',
+              'pb-[env(safe-area-inset-bottom,0px)]',
+            )}
+          >
+            <div className="flex justify-around items-center h-14">
+              {visibleTabs.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    'flex flex-col items-center justify-center py-1.5 px-3 text-xs transition-colors min-w-[56px]',
+                    tab === t.key
+                      ? 'text-red-600'
+                      : 'text-gray-400 hover:text-gray-600',
+                  )}
+                >
+                  {t.icon}
+                  <span className="mt-0.5 font-medium leading-tight">
+                    {t.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        )}
       </div>
     </SessionCtx.Provider>
   )
