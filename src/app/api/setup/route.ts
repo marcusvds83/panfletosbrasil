@@ -28,10 +28,11 @@ export async function GET(req: NextRequest) {
 
     // 2. Cria mercado demo se não existir
     const mercadoExistente = await db.mercado.findUnique({ where: { cnpj: '11222333000181' } })
+    let mercadoId: string = ''
     if (!mercadoExistente) {
       const agora = new Date()
       const pilotoFim = new Date(agora.getTime() + 60 * 24 * 60 * 60 * 1000)
-      await db.mercado.create({
+      const novoMercado: any = await db.mercado.create({
         nome: 'Supermercado Central Demo',
         cnpj: '11222333000181',
         cidade: 'São Paulo',
@@ -54,9 +55,63 @@ export async function GET(req: NextRequest) {
         responsavel: 'Administrador Demo',
         cpf: '12345678901',
       } as any)
+      mercadoId = novoMercado.id
       resultados.push('Mercado demo criado: CNPJ 11.222.333/0001-81 / super@central.com / super123')
     } else {
+      mercadoId = (mercadoExistente as any).id
       resultados.push('Mercado demo ja existe')
+    }
+
+    // 3. Cria encarte demo + produtos demo (se não existirem)
+    const encartesExistentes = await (db.encarte as any).findMany?.()
+    if (!encartesExistentes || encartesExistentes.length === 0) {
+      const agora = new Date().toISOString()
+      const encarte: any = await db.encarte.create({
+        mercadoId,
+        titulo: 'Encarte Demo - Ofertas da Semana',
+        pdfPath: null,
+        statusExtracao: 'concluido',
+        extracaoLog: 'Produtos demo criados via setup',
+        criadoEm: agora,
+      } as any)
+
+      const produtosDemo = [
+        { nome: 'Arroz Branco 5kg', marca: 'Tio João', preco: 'R$ 19,90', unidade: '5kg' },
+        { nome: 'Feijão Carioca 1kg', marca: 'Camil', preco: 'R$ 8,49', unidade: '1kg' },
+        { nome: 'Açúcar Cristal 1kg', marca: 'União', preco: 'R$ 4,99', unidade: '1kg' },
+        { nome: 'Café Torrado 500g', marca: 'Pilão', preco: 'R$ 14,90', unidade: '500g' },
+        { nome: 'Leite Integral 1L', marca: 'Itambé', preco: 'R$ 4,79', unidade: '1L' },
+        { nome: 'Óleo de Soja 900ml', marca: 'Liza', preco: 'R$ 6,49', unidade: '900ml' },
+        { nome: 'Macarrão Espaguete 500g', marca: 'Adria', preco: 'R$ 3,29', unidade: '500g' },
+        { nome: 'Margarina 500g', marca: 'Becel', preco: 'R$ 7,99', unidade: '500g' },
+        { nome: 'Refrigerante 2L', marca: 'Coca-Cola', preco: 'R$ 9,49', unidade: '2L' },
+        { nome: 'Biscoito Recheado', marca: 'Trakinas', preco: 'R$ 2,99', unidade: '1un' },
+        { nome: 'Detergente 500ml', marca: 'Ypê', preco: 'R$ 1,99', unidade: '500ml' },
+        { nome: 'Sabão em Pó 1kg', marca: 'Omo', preco: 'R$ 12,90', unidade: '1kg' },
+        { nome: 'Papel Higiênico 12un', marca: 'Personal', preco: 'R$ 8,90', unidade: '12un' },
+        { nome: 'Shampoo 350ml', marca: 'Seda', preco: 'R$ 9,90', unidade: '350ml' },
+        { nome: 'Carne Moída 1kg', marca: 'Friboi', preco: 'R$ 32,90', unidade: '1kg' },
+        { nome: 'Frango Resfriado 1kg', marca: 'Sadia', preco: 'R$ 14,90', unidade: '1kg' },
+        { nome: 'Queijo Mussarela 300g', marca: 'Polenghi', preco: 'R$ 12,99', unidade: '300g' },
+        { nome: 'Presunto Fatiado 200g', marca: 'Sadia', preco: 'R$ 6,49', unidade: '200g' },
+        { nome: 'Pão Francês 6un', marca: 'Padaria', preco: 'R$ 5,40', unidade: '6un' },
+        { nome: 'Banana Prata 1kg', marca: null, preco: 'R$ 4,50', unidade: '1kg' },
+      ]
+      for (const p of produtosDemo) {
+        await db.produto.create({
+          encarteId: encarte.id,
+          mercadoId,
+          nome: p.nome,
+          marca: p.marca,
+          preco: p.preco,
+          unidade: p.unidade,
+          normalizado: p.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
+          criadoEm: agora,
+        } as any)
+      }
+      resultados.push(`Encarte demo criado com ${produtosDemo.length} produtos`)
+    } else {
+      resultados.push(`Encartes ja existem (${encartesExistentes.length})`)
     }
 
     return NextResponse.json({

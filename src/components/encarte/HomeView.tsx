@@ -514,6 +514,7 @@ interface HomeViewProps {
 export default function HomeView({ sessionId, onAddToList, onPainelMercado }: HomeViewProps) {
   const [mercados, setMercados] = useState<MercadoSummary[]>([])
   const [destaques, setDestaques] = useState<MercadoSummary[]>([])
+  const [maisBaratos, setMaisBaratos] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [cityFilter, setCityFilter] = useState<string>('all')
   const [loading, setLoading] = useState(true)
@@ -539,6 +540,13 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
     return () => {
       cancelled = true
     }
+  }, [])
+
+  // Fetch mais baratos
+  useEffect(() => {
+    api<{ produtos: any[] }>('/api/produtos/mais-baratos?limit=20')
+      .then((d) => setMaisBaratos(d.produtos || []))
+      .catch(() => {})
   }, [])
 
   // Unique cities
@@ -592,6 +600,46 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
           <Store className="h-4 w-4" />
           Painel do Mercado (CNPJ)
         </button>
+      )}
+
+      {/* Mais baratos — seção de produtos ordenados por preço */}
+      {maisBaratos.length > 0 && (
+        <section>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+            <Package className="h-4 w-4 text-red-600" /> Mais baratos agora
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {maisBaratos.slice(0, 8).map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onAddToList({
+                  produtoId: p.id,
+                  mercadoId: p.mercado?.id || '',
+                  nome: p.nome,
+                  marca: p.marca,
+                  preco: p.preco,
+                  unidade: p.unidade,
+                  mercadoNome: p.mercado?.nome,
+                })}
+                className="text-left bg-white border border-gray-200 rounded-lg p-2.5 hover:border-red-300 hover:shadow-sm transition-all"
+              >
+                <p className="text-[11px] text-gray-400 truncate">
+                  {p.mercado?.nome || '—'}
+                </p>
+                <p className="text-xs font-medium text-gray-800 leading-tight mt-0.5 line-clamp-2">
+                  {p.nome}
+                </p>
+                {p.marca && (
+                  <p className="text-[10px] text-gray-500 truncate">{p.marca}</p>
+                )}
+                <p className="text-sm font-bold text-red-600 mt-1">{p.preco}</p>
+                {p.unidade && (
+                  <p className="text-[10px] text-gray-400">{p.unidade}</p>
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Search + Filter */}

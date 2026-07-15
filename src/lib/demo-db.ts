@@ -277,6 +277,15 @@ export const demoDb = {
       encartes.push(novo)
       return { ...novo }
     },
+
+    update: async (id: string, data: Record<string, any>) => {
+      const i = encartes.findIndex((e) => e.id === id)
+      if (i !== -1) {
+        encartes[i] = { ...encartes[i], ...data }
+        return { ...encartes[i] }
+      }
+      return null
+    },
   },
 
   produto: {

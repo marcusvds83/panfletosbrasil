@@ -177,10 +177,10 @@ function AdminLoginForm({ onLogin }: { onLogin: () => void }) {
         body: JSON.stringify({ email, senha }),
       })
       toast.success('Login administrativo realizado!')
-      onLogin()
+      // Força reload completo para pegar o cookie e re-renderizar
+      setTimeout(() => window.location.reload(), 500)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao fazer login')
-    } finally {
       setLoading(false)
     }
   }

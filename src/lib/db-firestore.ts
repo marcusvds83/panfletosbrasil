@@ -161,6 +161,12 @@ export const db = {
       const ref = await addDoc(collection(firestore as any, COLS.encartes), data)
       return { id: ref.id, ...data }
     },
+
+    update: async (id: string, data: Record<string, any>) => {
+      await updateDoc(doc(firestore as any, COLS.encartes, id), data)
+      const d = await getDoc(doc(firestore as any, COLS.encartes, id))
+      return { id: d.id, ...d.data() }
+    },
   },
 
   // ── Produto ─────────────────────────────────────────────────────────────
