@@ -76,8 +76,12 @@ export async function api<T = Record<string, unknown>>(
     Object.assign(headers, opts.headers)
   }
 
-  const res = await fetch(path, {
-    credentials: 'include',
+  // Se NEXT_PUBLIC_API_BASE está definido (deploy estático), redireciona API pra origem
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE || ''
+  const url = apiBase ? `${apiBase}${path}` : path
+
+  const res = await fetch(url, {
+    credentials: 'include', // cookie sameSite:none funciona cross-origin
     headers,
     ...opts,
   })

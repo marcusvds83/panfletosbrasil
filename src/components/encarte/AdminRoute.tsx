@@ -21,7 +21,9 @@ async function api<T = Record<string, unknown>>(
   const headers: Record<string, string> = {}
   if (!(opts?.body instanceof FormData)) headers['Content-Type'] = 'application/json'
   if (opts?.headers) Object.assign(headers, opts.headers as Record<string, string>)
-  const res = await fetch(path, { credentials: 'include', headers, ...opts })
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE || ''
+  const url = apiBase ? `${apiBase}${path}` : path
+  const res = await fetch(url, { credentials: 'include', headers, ...opts })
   if (!res.ok) {
     const data = await res.json().catch(() => ({ erro: 'Erro na requisição' }))
     throw new Error((data as { erro?: string }).erro || `Erro ${res.status}`)
