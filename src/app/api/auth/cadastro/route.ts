@@ -30,17 +30,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Cria usuário no Firestore (sem Firebase Auth, senha hash direto)
+    // db.usuario.create recebe o objeto DIRETO (não { data: {...} } como Prisma)
     const usuario: any = await db.usuario.create({
-      data: {
-        email,
-        senhaHash: hashSenha(senha),
-        nome: nome || null,
-        photoURL: null,
-        provider: 'email',
-        ativo: true,
-        criadoEm: new Date().toISOString(),
-      },
+      email,
+      senhaHash: hashSenha(senha),
+      nome: nome || null,
+      photoURL: null,
+      provider: 'email',
+      ativo: true,
+      criadoEm: new Date().toISOString(),
     })
+
+    if (!usuario || !usuario.id) {
+      return NextResponse.json({ erro: 'Erro ao criar conta. Tente novamente.' }, { status: 500 })
+    }
 
     const data: SessionData = {
       tipo: 'usuario',

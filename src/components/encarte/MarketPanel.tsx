@@ -581,10 +581,9 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
       .catch(() => {})
   }, [])
 
-  // Fetch encartes from conta
+  // Fetch encartes com produtos do mercado logado
   useEffect(() => {
-    // We already have the counts from conta; load encarte list via mercado detail
-    api<{ encartes: EncarteItem[] }>(`/api/mercados/${conta.id}`)
+    api<{ encartes: any[] }>('/api/mercado/meus-encartes')
       .then((d) => setEncartes(d.encartes || []))
       .catch(() => {})
   }, [conta.id])
@@ -897,7 +896,10 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
             </p>
           ) : (
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {encartes.map((e) => (
+              {encartes.map((e) => {
+                const prods = (e as any).produtos || []
+                const numProdutos = prods.length || (e as any)._count?.produtos || 0
+                return (
                 <div
                   key={e.id}
                   className="border border-gray-100 rounded-lg overflow-hidden"
@@ -913,13 +915,23 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
                           {e.titulo}
                         </p>
                         <p className="text-xs text-gray-400">
-                          {e._count.produtos} produto
-                          {e._count.produtos !== 1 ? 's' : ''} ·{' '}
+                          {numProdutos} produto{numProdutos !== 1 ? 's' : ''} ·{' '}
                           {extracaoLabel(e.statusExtracao)}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {(e as any).pdfPath && (
+                        <a
+                          href={`/api/encarte/${e.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(ev) => ev.stopPropagation()}
+                          className="text-[10px] bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-md font-medium"
+                        >
+                          Ver PDF
+                        </a>
+                      )}
                       <Badge
                         variant={
                           e.statusExtracao === 'concluido'
@@ -940,8 +952,7 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
                     </div>
                   </button>
                   <AnimatePresence>
-                    {expandedEncarte === e.id &&
-                      encarteProducts[e.id] && (
+                    {expandedEncarte === e.id && prods.length > 0 && (
                         <motion.div
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
@@ -950,7 +961,7 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
                           className="overflow-hidden"
                         >
                           <div className="border-t border-gray-50 max-h-60 overflow-y-auto">
-                            {encarteProducts[e.id].map((p) => (
+                            {prods.map((p: any) => (
                               <div
                                 key={p.id}
                                 className="flex items-center justify-between px-3 py-2 border-b border-gray-50 last:border-0"
@@ -980,7 +991,8 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
                       )}
                   </AnimatePresence>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
