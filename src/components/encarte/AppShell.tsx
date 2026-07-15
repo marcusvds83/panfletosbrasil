@@ -25,10 +25,11 @@ import CompareView from './CompareView'
 import MyListView from './MyListView'
 import MarketPanel from './MarketPanel'
 import AdminPanel from './AdminPanel'
+import UserProfile from './UserProfile'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export type TabId = 'home' | 'comparar' | 'lista' | 'mercado' | 'admin'
+export type TabId = 'home' | 'comparar' | 'lista' | 'mercado' | 'admin' | 'conta'
 
 export interface AuthUser {
   tipo: 'mercado' | 'admin' | 'usuario'
@@ -125,6 +126,12 @@ const TABS: TabDef[] = [
     label: 'Painel',
     icon: <Store className="h-5 w-5" />,
     showWhen: (s) => s?.tipo === 'mercado', // só mercado vê o painel
+  },
+  {
+    key: 'conta',
+    label: 'Conta',
+    icon: <Store className="h-5 w-5" />,
+    showWhen: (s) => s?.tipo === 'usuario',
   },
   // Admin NÃO aparece no app — só via /admin
 ]
@@ -243,11 +250,13 @@ export default function AppShell() {
           />
         )
       case 'comparar':
-        return <CompareView />
+        return <CompareView sessionId={sessionId} onAddToList={handleAddToList} />
       case 'lista':
         return <MyListView sessionId={sessionId} />
       case 'mercado':
         return <MarketPanel onLogout={handleLogout} onLogin={checkAuth} />
+      case 'conta':
+        return <UserProfile onLogout={handleLogout} />
       default:
         return (
           <HomeView

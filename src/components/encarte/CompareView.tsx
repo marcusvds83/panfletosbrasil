@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingDown, Store, Tag, Loader2 } from 'lucide-react'
+import { TrendingDown, Store, Tag, Loader2, Plus, Check } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { api } from './AppShell'
+import { toast } from 'sonner'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,21 @@ interface Comparacao {
 
 // ── Component ───────────────────────────────────────────────────────────────
 
-export default function CompareView() {
+interface CompareViewProps {
+  sessionId: string
+  onAddToList: (item: {
+    produtoId: string
+    mercadoId: string
+    nome: string
+    marca?: string | null
+    preco?: string | null
+    unidade?: string | null
+    mercadoNome?: string | null
+  }) => void
+}
+
+export default function CompareView({ sessionId, onAddToList }: CompareViewProps) {
+  const [addingId, setAddingId] = useState<string | null>(null)
   const [comparacoes, setComparacoes] = useState<Comparacao[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -50,6 +65,27 @@ export default function CompareView() {
       cancelled = true
     }
   }, [])
+
+  const handleAdd = useCallback(async (p: CompararProduto) => {
+    setAddingId(p.id)
+    try {
+      await api('/api/clique', {
+        method: 'POST',
+        body: JSON.stringify({ produtoId: p.id, mercadoId: p.mercado.id, sessionId }),
+      })
+    } catch { /* ignore */ }
+    onAddToList({
+      produtoId: p.id,
+      mercadoId: p.mercado.id,
+      nome: p.nome,
+      marca: p.marca,
+      preco: p.preco,
+      unidade: p.unidade,
+      mercadoNome: p.mercado.nome,
+    })
+    toast.success(`"${p.nome}" adicionado à lista`)
+    setTimeout(() => setAddingId(null), 1200)
+  }, [sessionId, onAddToList])
 
   // ── Loading ──────────────────────────────────────────────────────────
   if (loading) {
@@ -207,6 +243,21 @@ export default function CompareView() {
                               Menor
                             </Badge>
                           )}
+                          <button
+                            onClick={() => handleAdd(p)}
+                            className={cn(
+                              'h-7 w-7 rounded-full flex items-center justify-center shrink-0 transition-colors',
+                              addingId === p.id
+                                ? 'bg-green-500 text-white'
+                                : 'bg-red-50 text-red-600 hover:bg-red-100',
+                            )}
+                          >
+                            {addingId === p.id ? (
+                              <Check className="h-3.5 w-3.5" />
+                            ) : (
+                              <Plus className="h-3.5 w-3.5" />
+                            )}
+                          </button>
                         </div>
                       </motion.div>
                     )

@@ -15,6 +15,8 @@ import {
   MapPin,
   BarChart3,
   Loader2,
+  UserCircle,
+  Save,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -574,6 +576,14 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
   const [titulo, setTitulo] = useState('')
   const [uploading, setUploading] = useState(false)
 
+  // Profile editing state
+  const [editingProfile, setEditingProfile] = useState(false)
+  const [profileNome, setProfileNome] = useState(conta.nome)
+  const [profileEmail, setProfileEmail] = useState(conta.emailLogin)
+  const [profileEndereco, setProfileEndereco] = useState('')
+  const [profileTelefone, setProfileTelefone] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+
   // Fetch BI
   useEffect(() => {
     api<BIData>('/api/mercado/bi')
@@ -650,6 +660,23 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
     }
   }
 
+  // Save profile
+  const handleSaveProfile = async () => {
+    setSavingProfile(true)
+    try {
+      await api('/api/mercado/perfil', {
+        method: 'PUT',
+        body: JSON.stringify({ nome: profileNome, email: profileEmail, endereco: profileEndereco, telefone: profileTelefone }),
+      })
+      toast.success('Perfil atualizado!')
+      setEditingProfile(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar perfil')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -673,6 +700,57 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
           Sair
         </Button>
       </div>
+
+      {/* Profile Card */}
+      <Card className="border-gray-100">
+        <CardHeader className="pb-3 pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <UserCircle className="h-4 w-4 text-red-600" /> Meu Perfil
+            </CardTitle>
+            {!editingProfile && (
+              <Button variant="ghost" size="sm" className="text-xs text-gray-500 h-7" onClick={() => { setProfileNome(conta.nome); setProfileEmail(conta.emailLogin); setEditingProfile(true) }}>
+                Editar
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          {editingProfile ? (
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nome</Label>
+                <Input value={profileNome} onChange={(e) => setProfileNome(e.target.value)} className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">E-mail</Label>
+                <Input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} className="h-9 text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Endereço</Label>
+                <Input value={profileEndereco} onChange={(e) => setProfileEndereco(e.target.value)} className="h-9 text-sm" placeholder="Rua, número, bairro..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Telefone</Label>
+                <Input value={profileTelefone} onChange={(e) => setProfileTelefone(e.target.value)} className="h-9 text-sm" placeholder="(00) 00000-0000" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile} className="bg-red-600 hover:bg-red-700 text-white h-8 text-xs">
+                  {savingProfile ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />} Salvar
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setEditingProfile(false)} className="h-8 text-xs">Cancelar</Button>
+              </div>
+            </motion.div>
+          ) : (
+            <div className="space-y-2 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div><span className="text-gray-500 text-xs block">Nome</span><p className="font-medium">{conta.nome}</p></div>
+                <div><span className="text-gray-500 text-xs block">E-mail</span><p className="font-medium">{conta.emailLogin}</p></div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

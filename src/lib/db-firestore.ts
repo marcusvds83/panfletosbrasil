@@ -176,6 +176,21 @@ export const db = {
       const d = await getDoc(doc(firestore as any, COLS.encartes, id))
       return { id: d.id, ...d.data() }
     },
+
+    findMany: async (opts?: { where?: { mercadoId: string } }) => {
+      let q = query(collection(firestore as any, COLS.encartes))
+      if (opts?.where?.mercadoId) {
+        q = query(q, where('mercadoId', '==', opts.where.mercadoId))
+      }
+      const snap = await getDocs(q)
+      return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+    },
+
+    count: async (opts: { where: { mercadoId: string } }) => {
+      const q = query(collection(firestore as any, COLS.encartes), where('mercadoId', '==', opts.where.mercadoId))
+      const snap = await getDocs(q)
+      return snap.size
+    },
   },
 
   // ── Produto ─────────────────────────────────────────────────────────────

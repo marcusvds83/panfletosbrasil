@@ -24,8 +24,17 @@ export async function GET() {
       statusEfetivo = 'piloto_expirado'
     }
 
-    const totalProdutos = await db.produto.count({ where: { mercadoId: mercado.id } })
-    const totalEncartes = await db.encarte?.count?.({ where: { mercadoId: mercado.id } }) || 0
+    // Count only active (non-expired, concluded) encartes and their products
+    const todosEncartes = await db.encarte?.findMany?.({ where: { mercadoId: mercado.id } }) || []
+    const encartesAtivos = todosEncartes.filter(
+      (e: any) => e.statusExtracao === 'concluido' && (!e.dataFim || e.dataFim >= agora),
+    )
+    const activeEncarteIds = new Set(encartesAtivos.map((e: any) => e.id))
+    const todosProdutos = await db.produto.findAll()
+    const totalProdutos = todosProdutos.filter(
+      (p: any) => p.mercadoId === mercado.id && activeEncarteIds.has(p.encarteId),
+    ).length
+    const totalEncartes = encartesAtivos.length
     const totalCliques = await db.cliqueProduto.count({ where: { mercadoId: mercado.id } })
 
     return NextResponse.json({ ...mercado, statusEfetivo, totalProdutos, totalEncartes, totalCliques })

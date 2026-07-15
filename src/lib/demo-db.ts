@@ -286,6 +286,21 @@ export const demoDb = {
       }
       return null
     },
+
+    findMany: async (opts?: { where?: { mercadoId: string } }) => {
+      let list = [...encartes]
+      if (opts?.where?.mercadoId) {
+        list = list.filter((e) => e.mercadoId === opts.where.mercadoId)
+      }
+      return list.sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)).map(e => ({
+        ...e,
+        _fileSize: encarteFileSizes[e.id] || 0,
+      }))
+    },
+
+    count: async (opts: { where: { mercadoId: string } }) => {
+      return encartes.filter((e) => e.mercadoId === opts.where.mercadoId).length
+    },
   },
 
   produto: {
@@ -461,6 +476,12 @@ export const demoDb = {
       return usuarios.map((u) => ({ ...u }))
     },
   },
+}
+
+const encarteFileSizes: Record<string, number> = {}
+
+export function _setFileSize(encarteId: string, size: number) {
+  encarteFileSizes[encarteId] = size
 }
 
 export const isDemo = true
