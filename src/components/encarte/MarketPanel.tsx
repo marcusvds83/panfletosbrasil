@@ -607,10 +607,14 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
       const fd = new FormData()
       fd.append('titulo', titulo.trim())
       fd.append('pdf', file)
-      const result = await api<{ ok: boolean; produtosExtraidos: number; log?: string }>('/api/mercado/encarte', {
+      const result = await api<{ ok: boolean; produtosExtraidos: number; log?: string; erro?: string }>('/api/mercado/encarte', {
         method: 'POST',
         body: fd,
       })
+      if ((result as any).erro) {
+        toast.error((result as any).erro, { duration: 5000 })
+        return
+      }
       const n = (result as any).produtosExtraidos || 0
       if (n > 0) {
         toast.success(`Encarte enviado! ${n} produtos extraídos do PDF.`, { duration: 5000 })

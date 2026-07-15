@@ -47,7 +47,7 @@ export function sessionCookie(data: SessionData) {
     value: JSON.stringify(data),
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    sameSite: 'none' as const, // necessário para WebView Android e cross-origin
     path: '/',
     maxAge: 60 * 60 * 24 * 30,
   }
