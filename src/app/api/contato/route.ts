@@ -74,21 +74,30 @@ export async function POST(req: NextRequest) {
     }
     mensagens.push(msg)
 
-    // Tenta enviar e-mail se SMTP configurado
-    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    // Tenta enviar e-mail (usa defaults do email.ts se env vars nao definidas)
+    const SMTP_HOST = process.env.SMTP_HOST || 'mail.3codenexus.com.br'
+    const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10)
+    const SMTP_USER = process.env.SMTP_USER || 'contato@3codenexus.com.br'
+    const SMTP_PASS = process.env.SMTP_PASS || ''
+    const SMTP_FROM = process.env.SMTP_FROM || 'EncarteBrasil <contato@3codenexus.com.br>'
+
+    if (SMTP_PASS) {
       try {
         const nodemailer = await import('nodemailer')
         const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT || '587'),
-          secure: false,
-          auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+          host: SMTP_HOST,
+          port: SMTP_PORT,
+          secure: SMTP_PORT === 465,
+          auth: { user: SMTP_USER, pass: SMTP_PASS },
+          connectionTimeout: 10_000,
+          greetingTimeout: 5_000,
+          socketTimeout: 15_000,
         })
         const tipoLabel = tipo === 'mercado' ? '[MERCADO]' : '[CONSUMIDOR]'
         const mercadoInfo = mercadoNome ? ` (${mercadoNome})` : ''
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || process.env.SMTP_USER,
-          to: process.env.CONTATO_EMAIL || 'marcusvds83@gmail.com',
+        const info = await transporter.sendMail({
+          from: SMTP_FROM,
+          to: process.env.CONTATO_EMAIL || 'contato@3codenexus.com.br',
           subject: `${tipoLabel}${mercadoInfo} ${categoria}: ${assunto}`,
           text: [
             `Tipo: ${tipo.toUpperCase()}${mercadoInfo}`,
@@ -100,9 +109,12 @@ export async function POST(req: NextRequest) {
             `Enviado em: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
           ].join('\n'),
         })
-      } catch (emailErr) {
-        console.error('[contato] erro ao enviar e-mail:', emailErr)
+        console.log(`[contato] email enviado: ${info.messageId}`)
+      } catch (emailErr: any) {
+        console.error(`[contato] erro ao enviar e-mail: ${emailErr?.message || emailErr}`)
       }
+    } else {
+      console.warn('[contato] SMTP_PASS nao configurada — e-mail de contato nao enviado')
     }
 
     return NextResponse.json({ ok: true, mensagem: 'Mensagem enviada com sucesso!' })
