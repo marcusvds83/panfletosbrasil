@@ -149,6 +149,13 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
   const [modoCadastro, setModoCadastro] = useState(false)
   const [nomeCadastro, setNomeCadastro] = useState('')
 
+  // Esqueci a senha
+  const [modoEsqueci, setModoEsqueci] = useState(false)
+  const [esqueciEmail, setEsqueciEmail] = useState('')
+  const [esqueciCnpj, setEsqueciCnpj] = useState('')
+  const [esqueciNovaSenha, setEsqueciNovaSenha] = useState('')
+  const [esqueciLoading, setEsqueciLoading] = useState(false)
+
   // PJ (Mercado) — CNPJ + e-mail + senha + cadastro
   const [cnpj, setCnpj] = useState('')
   const [email, setEmail] = useState('')
@@ -332,6 +339,15 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                       Cadastre-se grátis
                     </button>
                   </p>
+                  <p className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => { setModoEsqueci(true); setEsqueciCnpj('') }}
+                      className="text-[11px] text-gray-500 hover:text-red-600 hover:underline"
+                    >
+                      Esqueci minha senha
+                    </button>
+                  </p>
                 </>
               ) : (
                 <>
@@ -432,6 +448,15 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                       className="text-red-600 font-semibold hover:underline"
                     >
                       Cadastre seu mercado grátis
+                    </button>
+                  </p>
+                  <p className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => { setModoEsqueci(true); setEsqueciEmail(email) }}
+                      className="text-[11px] text-gray-500 hover:text-red-600 hover:underline"
+                    >
+                      Esqueci minha senha
                     </button>
                   </p>
                 </>
@@ -558,6 +583,121 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* ── Esqueci a Senha Modal ────────────────────────────────────── */}
+      <AnimatePresence>
+        {modoEsqueci && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4"
+            onClick={() => setModoEsqueci(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-base font-bold text-gray-800 mb-1">Redefinir senha</h3>
+              <p className="text-xs text-gray-500 mb-4">
+                {tab === 'pj'
+                  ? 'Informe o CNPJ, e-mail cadastrado e a nova senha.'
+                  : 'Informe o e-mail cadastrado e a nova senha.'}
+              </p>
+              <form
+                className="space-y-3"
+                onSubmit={async (e) => {
+                  e.preventDefault()
+                  if (!esqueciEmail || !esqueciNovaSenha) {
+                    toast.error('Preencha todos os campos')
+                    return
+                  }
+                  if (esqueciNovaSenha.length < 6) {
+                    toast.error('Nova senha deve ter no mínimo 6 caracteres')
+                    return
+                  }
+                  setEsqueciLoading(true)
+                  try {
+                    await api('/api/auth/esqueci-senha', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        email: esqueciEmail,
+                        novaSenha: esqueciNovaSenha,
+                        tipo: tab === 'pj' ? 'mercado' : 'usuario',
+                        cnpj: tab === 'pj' ? esqueciCnpj.replace(/\D/g, '') : undefined,
+                      }),
+                    })
+                    toast.success('Senha atualizada com sucesso!')
+                    setModoEsqueci(false)
+                    setEsqueciNovaSenha('')
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Erro ao redefinir')
+                  } finally {
+                    setEsqueciLoading(false)
+                  }
+                }}
+              >
+                {tab === 'pj' && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">CNPJ *</Label>
+                    <Input
+                      value={esqueciCnpj}
+                      onChange={(e) => setEsqueciCnpj(formatCNPJ(e.target.value))}
+                      placeholder="00.000.000/0001-00"
+                      className="h-9 text-sm"
+                      maxLength={18}
+                    />
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">E-mail *</Label>
+                  <Input
+                    type="email"
+                    value={esqueciEmail}
+                    onChange={(e) => setEsqueciEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nova Senha (mín. 6 caracteres) *</Label>
+                  <Input
+                    type="password"
+                    value={esqueciNovaSenha}
+                    onChange={(e) => setEsqueciNovaSenha(e.target.value)}
+                    placeholder="•••••••"
+                    className="h-9 text-sm"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={esqueciLoading}
+                    className="bg-red-600 hover:bg-red-700 text-white h-9 text-xs flex-1"
+                  >
+                    {esqueciLoading && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                    Redefinir
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setModoEsqueci(false)}
+                    className="h-9 text-xs"
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
@@ -577,14 +717,6 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
   const [dataInicio, setDataInicio] = useState('')
   const [dataFim, setDataFim] = useState('')
   const [uploading, setUploading] = useState(false)
-
-  // Profile editing state
-  const [editingProfile, setEditingProfile] = useState(false)
-  const [profileNome, setProfileNome] = useState(conta.nome)
-  const [profileEmail, setProfileEmail] = useState(conta.emailLogin)
-  const [profileEndereco, setProfileEndereco] = useState('')
-  const [profileTelefone, setProfileTelefone] = useState('')
-  const [savingProfile, setSavingProfile] = useState(false)
 
   // Fetch BI
   useEffect(() => {
@@ -678,23 +810,6 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
     }
   }
 
-  // Save profile
-  const handleSaveProfile = async () => {
-    setSavingProfile(true)
-    try {
-      await api('/api/mercado/perfil', {
-        method: 'PUT',
-        body: JSON.stringify({ nome: profileNome, email: profileEmail, endereco: profileEndereco, telefone: profileTelefone }),
-      })
-      toast.success('Perfil atualizado!')
-      setEditingProfile(false)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar perfil')
-    } finally {
-      setSavingProfile(false)
-    }
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -718,57 +833,6 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
           Sair
         </Button>
       </div>
-
-      {/* Profile Card */}
-      <Card className="border-gray-100">
-        <CardHeader className="pb-3 pt-4 px-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <UserCircle className="h-4 w-4 text-red-600" /> Meu Perfil
-            </CardTitle>
-            {!editingProfile && (
-              <Button variant="ghost" size="sm" className="text-xs text-gray-500 h-7" onClick={() => { setProfileNome(conta.nome); setProfileEmail(conta.emailLogin); setEditingProfile(true) }}>
-                Editar
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {editingProfile ? (
-            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Nome</Label>
-                <Input value={profileNome} onChange={(e) => setProfileNome(e.target.value)} className="h-9 text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">E-mail</Label>
-                <Input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} className="h-9 text-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Endereço</Label>
-                <Input value={profileEndereco} onChange={(e) => setProfileEndereco(e.target.value)} className="h-9 text-sm" placeholder="Rua, número, bairro..." />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Telefone</Label>
-                <Input value={profileTelefone} onChange={(e) => setProfileTelefone(e.target.value)} className="h-9 text-sm" placeholder="(00) 00000-0000" />
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" onClick={handleSaveProfile} disabled={savingProfile} className="bg-red-600 hover:bg-red-700 text-white h-8 text-xs">
-                  {savingProfile ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Save className="h-3 w-3 mr-1" />} Salvar
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setEditingProfile(false)} className="h-8 text-xs">Cancelar</Button>
-              </div>
-            </motion.div>
-          ) : (
-            <div className="space-y-2 text-sm">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div><span className="text-gray-500 text-xs block">Nome</span><p className="font-medium">{conta.nome}</p></div>
-                <div><span className="text-gray-500 text-xs block">E-mail</span><p className="font-medium">{conta.emailLogin}</p></div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -796,6 +860,8 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
             value: `R$${conta.mensalidade}`,
             icon: <BarChart3 className="h-5 w-5" />,
             color: 'text-red-600 bg-orange-50',
+            badge: (conta.statusEfetivo === 'piloto' || conta.status === 'piloto')
+              ? 'Piloto — isento' : undefined,
           },
         ].map((s) => (
           <motion.div
@@ -803,8 +869,15 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
             whileHover={{ y: -2 }}
             transition={{ type: 'spring', stiffness: 400, damping: 25 }}
           >
-            <Card className="border-gray-100">
+            <Card className="border-gray-100 relative overflow-visible">
               <CardContent className="p-4">
+                {(s as any).badge && (
+                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10">
+                    <Badge className="bg-blue-500 text-white text-[9px] px-2 py-0.5 shadow-sm whitespace-nowrap">
+                      {(s as any).badge}
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex items-center justify-between mb-2">
                   <div className={cn('p-2 rounded-lg', s.color)}>{s.icon}</div>
                 </div>

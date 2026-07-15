@@ -48,6 +48,8 @@ interface Usuario {
   photoURL: string | null
   provider: string
   criadoEm: string
+  senhaHash?: string
+  ativo?: boolean
 }
 
 interface Encarte {
@@ -458,6 +460,8 @@ export const demoDb = {
         photoURL: data.photoURL || null,
         provider: data.provider || 'email',
         criadoEm: data.criadoEm || new Date().toISOString(),
+        senhaHash: data.senhaHash || undefined,
+        ativo: data.ativo !== undefined ? data.ativo : true,
       }
       usuarios.push(novo)
       return { ...novo }

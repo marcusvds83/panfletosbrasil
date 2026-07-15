@@ -165,20 +165,19 @@ function DestaqueCard({
 
 function MarketCard({
   m,
-  onClick,
+  onCatalogo,
+  onProdutos,
 }: {
   m: MercadoSummary
-  onClick: () => void
+  onCatalogo: () => void
+  onProdutos: () => void
 }) {
   return (
     <motion.div
       whileHover={{ y: -2 }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
     >
-      <Card
-        className="cursor-pointer hover:shadow-lg transition-all border-gray-100 bg-white h-full"
-        onClick={onClick}
-      >
+      <Card className="hover:shadow-lg transition-all border-gray-100 bg-white h-full">
         <CardContent className="p-4 flex flex-col gap-3">
           <div className="flex items-center gap-3">
             <div className="h-11 w-11 rounded-full bg-red-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
@@ -204,14 +203,25 @@ function MarketCard({
               {m.totalProdutos} produto{m.totalProdutos !== 1 ? 's' : ''}
             </span>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full text-red-600 border-red-200 hover:bg-orange-50 hover:text-red-700 text-xs h-8"
-          >
-            Ver encarte
-            <ChevronRight className="h-3 w-3 ml-1" />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs h-9"
+              onClick={(e) => { e.stopPropagation(); onCatalogo() }}
+            >
+              <FileText className="h-3.5 w-3.5 mr-1" />
+              Catálogo
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1 text-red-600 border-red-200 hover:bg-orange-50 hover:text-red-700 text-xs h-9"
+              onClick={(e) => { e.stopPropagation(); onProdutos() }}
+            >
+              <Package className="h-3.5 w-3.5 mr-1" />
+              Lista de Itens
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </motion.div>
@@ -225,6 +235,7 @@ function MarketDetailView({
   onBack,
   sessionId,
   onAddToList,
+  initialMode = 'produtos',
 }: {
   mercadoId: string
   onBack: () => void
@@ -238,6 +249,7 @@ function MarketDetailView({
     unidade?: string | null
     mercadoNome?: string | null
   }) => void
+  initialMode?: 'produtos' | 'catalogo'
 }) {
   const [detail, setDetail] = useState<MercadoDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -246,6 +258,8 @@ function MarketDetailView({
   const [encarteProducts, setEncarteProducts] = useState<
     Record<string, ProdutoDetail[]>
   >({})
+  const [viewMode, setViewMode] = useState<'produtos' | 'catalogo'>(initialMode)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -282,6 +296,24 @@ function MarketDetailView({
     },
     [encarteProducts, expandedEncarte],
   )
+
+  // Auto-load first PDF when catalogo mode
+  useEffect(() => {
+    if (viewMode === 'catalogo' && detail && !pdfUrl) {
+      const firstPdf = detail.encartes.find((e) => e.pdfPath)
+      if (firstPdf) {
+        setPdfUrl(`/api/encarte/${firstPdf.id}/pdf`)
+      }
+    }
+  }, [viewMode, detail, pdfUrl])
+
+  const handleSwitchMode = useCallback((mode: 'produtos' | 'catalogo') => {
+    setViewMode(mode)
+    if (mode === 'catalogo' && detail) {
+      const firstPdf = detail.encartes.find((e) => e.pdfPath)
+      setPdfUrl(firstPdf ? `/api/encarte/${firstPdf.id}/pdf` : null)
+    }
+  }, [detail])
 
   const handleAdd = useCallback(
     (p: ProdutoDetail) => {
@@ -355,8 +387,81 @@ function MarketDetailView({
         </CardContent>
       </Card>
 
-      {/* All Products (flat list from active encartes) */}
-      {detail.produtos.length > 0 && (
+      {/* Mode toggle: Lista de Itens / Catálogo PDF */}
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant={viewMode === 'produtos' ? 'default' : 'outline'}
+          className={cn(
+            'flex-1 h-9 text-xs',
+            viewMode === 'produtos'
+              ? 'bg-red-600 hover:bg-red-700 text-white'
+              : 'text-gray-500 border-gray-200',
+          )}
+          onClick={() => handleSwitchMode('produtos')}
+        >
+          <Package className="h-3.5 w-3.5 mr-1" />
+          Lista de Itens
+        </Button>
+        <Button
+          size="sm"
+          variant={viewMode === 'catalogo' ? 'default' : 'outline'}
+          className={cn(
+            'flex-1 h-9 text-xs',
+            viewMode === 'catalogo'
+              ? 'bg-red-600 hover:bg-red-700 text-white'
+              : 'text-gray-500 border-gray-200',
+          )}
+          onClick={() => handleSwitchMode('catalogo')}
+        >
+          <FileText className="h-3.5 w-3.5 mr-1" />
+          Catálogo PDF
+        </Button>
+      </div>
+
+      {/* PDF Catalog Viewer */}
+      {viewMode === 'catalogo' && (
+        <section>
+          {pdfUrl ? (
+            <>
+              {/* Encarte selector if multiple */}
+              {detail.encartes.filter((e) => e.pdfPath).length > 1 && (
+                <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+                  {detail.encartes.filter((e) => e.pdfPath).map((e) => (
+                    <button
+                      key={e.id}
+                      onClick={() => setPdfUrl(`/api/encarte/${e.id}/pdf`)}
+                      className={cn(
+                        'shrink-0 text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap',
+                        pdfUrl === `/api/encarte/${e.id}/pdf`
+                          ? 'bg-red-600 text-white border-red-600'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-red-300',
+                      )}
+                    >
+                      {e.titulo}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
+                <iframe
+                  src={pdfUrl}
+                  className="w-full h-[70vh] min-h-[500px]"
+                  title={`Catálogo ${detail.nome}`}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-gray-100">
+              <FileText className="h-10 w-10 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Nenhum catálogo PDF disponível</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* Products list (shown in produtos mode) */}
+      {viewMode === 'produtos' && detail.produtos.length > 0 && (
         <section>
           <h3 className="font-semibold text-sm mb-3 text-gray-700 flex items-center gap-1.5">
             <Package className="h-4 w-4 text-red-600" />
@@ -404,8 +509,8 @@ function MarketDetailView({
         </section>
       )}
 
-      {/* Encartes (with PDF and date info) */}
-      {detail.encartes.length > 0 && (
+      {/* Encartes (only in produtos mode) */}
+      {viewMode === 'produtos' && detail.encartes.length > 0 && (
         <section>
           <h3 className="font-semibold text-sm mb-3 text-gray-700 flex items-center gap-1.5">
             <FileText className="h-4 w-4 text-red-600" />
@@ -555,6 +660,7 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
   const [loading, setLoading] = useState(true)
   const [loadingProdutos, setLoadingProdutos] = useState(true)
   const [selectedMercado, setSelectedMercado] = useState<string | null>(null)
+  const [detailMode, setDetailMode] = useState<'produtos' | 'catalogo'>('produtos')
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Fetch markets
@@ -632,11 +738,12 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
   if (selectedMercado) {
     return (
       <MarketDetailView
-        key={selectedMercado}
+        key={selectedMercado + detailMode}
         mercadoId={selectedMercado}
         onBack={() => setSelectedMercado(null)}
         sessionId={sessionId}
         onAddToList={onAddToList}
+        initialMode={detailMode}
       />
     )
   }
@@ -806,7 +913,8 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
               <MarketCard
                 key={m.id}
                 m={m}
-                onClick={() => setSelectedMercado(m.id)}
+                onCatalogo={() => { setDetailMode('catalogo'); setSelectedMercado(m.id) }}
+                onProdutos={() => { setDetailMode('produtos'); setSelectedMercado(m.id) }}
               />
             ))}
           </div>

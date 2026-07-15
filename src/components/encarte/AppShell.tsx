@@ -16,6 +16,7 @@ import {
   Store,
   ShieldCheck,
   LogOut,
+  UserCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
@@ -26,10 +27,11 @@ import MyListView from './MyListView'
 import MarketPanel from './MarketPanel'
 import AdminPanel from './AdminPanel'
 import UserProfile from './UserProfile'
+import MarketAccountView from './MarketAccountView'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
-export type TabId = 'home' | 'comparar' | 'lista' | 'mercado' | 'admin' | 'conta'
+export type TabId = 'home' | 'comparar' | 'lista' | 'mercado' | 'admin' | 'conta' | 'conta_mercado'
 
 export interface AuthUser {
   tipo: 'mercado' | 'admin' | 'usuario'
@@ -126,6 +128,12 @@ const TABS: TabDef[] = [
     label: 'Painel',
     icon: <Store className="h-5 w-5" />,
     showWhen: (s) => s?.tipo === 'mercado', // só mercado vê o painel
+  },
+  {
+    key: 'conta_mercado',
+    label: 'Conta',
+    icon: <UserCircle className="h-5 w-5" />,
+    showWhen: (s) => s?.tipo === 'mercado',
   },
   {
     key: 'conta',
@@ -306,18 +314,22 @@ export default function AppShell() {
     )
   }
 
-  // Mercado: painel isolado (sem home, comparar, lista — apenas o painel dele)
+  // Mercado: layout com bottom nav (Painel + Conta)
   if (session.tipo === 'mercado') {
+    const mercadoTabs = TABS.filter((t) => t.showWhen(session))
     return (
       <SessionCtx.Provider value={session}>
         <div className="min-h-screen flex flex-col bg-gray-50">
+          {/* Header */}
           <header className="bg-gradient-to-r from-red-600 to-orange-500 text-white sticky top-0 z-50 shadow-md">
             <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <EbLogo size="sm" />
                 <div>
                   <h1 className="text-lg font-bold leading-tight">EncarteBrasil</h1>
-                  <p className="text-[10px] opacity-90 leading-tight">Painel do Mercado</p>
+                  <p className="text-[10px] opacity-90 leading-tight">
+                    {tab === 'conta_mercado' ? 'Minha Conta' : 'Painel do Mercado'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -331,9 +343,75 @@ export default function AppShell() {
               </div>
             </div>
           </header>
-          <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-20 lg:pb-6">
-            <MarketPanel onLogout={handleLogout} onLogin={checkAuth} />
+
+          {/* Desktop tabs */}
+          <nav className="hidden lg:block bg-white border-b border-gray-200">
+            <div className="max-w-6xl mx-auto px-4 flex gap-1">
+              {mercadoTabs.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    'px-4 py-2.5 text-sm font-medium transition-colors rounded-t-md',
+                    tab === t.key
+                      ? 'bg-red-50 text-red-600 border-b-2 border-red-600'
+                      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700',
+                  )}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    {t.icon} {t.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          {/* Main content */}
+          <main className={cn('flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-20 lg:pb-6')}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={tab}
+                initial={{ opacity: 0, x: 12 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -12 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+              >
+                {tab === 'conta_mercado' ? (
+                  <MarketAccountView onLogout={handleLogout} />
+                ) : (
+                  <MarketPanel onLogout={handleLogout} onLogin={checkAuth} />
+                )}
+              </motion.div>
+            </AnimatePresence>
           </main>
+
+          {/* Bottom Nav (Mobile) */}
+          <nav
+            className={cn(
+              'lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 z-50',
+              'pb-[env(safe-area-inset-bottom,0px)]',
+            )}
+          >
+            <div className="flex justify-around items-center h-14">
+              {mercadoTabs.map((t) => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    'flex flex-col items-center justify-center py-1.5 px-3 text-xs transition-colors min-w-[56px]',
+                    tab === t.key
+                      ? 'text-red-600'
+                      : 'text-gray-400 hover:text-gray-600',
+                  )}
+                >
+                  {t.icon}
+                  <span className="mt-0.5 font-medium leading-tight">
+                    {t.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </nav>
         </div>
       </SessionCtx.Provider>
     )
