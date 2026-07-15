@@ -289,6 +289,19 @@ export default function MyListView({ sessionId }: MyListViewProps) {
         )}
       </div>
 
+      {/* Botão: Rota dos mercados mais próximos */}
+      {Object.keys(grouped).length > 0 && (
+        <a
+          href={`https://www.google.com/maps/search/${encodeURIComponent(Object.keys(grouped).join(' supermercado, ') + ' supermercado')}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-red-600 to-orange-500 text-white text-sm font-semibold py-3 px-4 rounded-xl shadow-sm hover:shadow-md transition-shadow"
+        >
+          <MapPin className="h-4 w-4" />
+          Ver rota dos mercados mais próximos
+        </a>
+      )}
+
       {/* Grouped items */}
       <div className="space-y-4 pb-20">
         {Object.entries(grouped).map(([market, marketItems]) => (

@@ -417,6 +417,17 @@ function MarketDetailView({
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {e.pdfPath && (
+                      <a
+                        href={`/api/encarte/${e.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(ev) => ev.stopPropagation()}
+                        className="text-[10px] bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded-md font-medium"
+                      >
+                        Ver PDF
+                      </a>
+                    )}
                     <Badge
                       variant={statusVariant(e.statusExtracao)}
                       className="text-[10px]"

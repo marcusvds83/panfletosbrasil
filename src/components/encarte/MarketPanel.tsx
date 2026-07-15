@@ -607,11 +607,16 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
       const fd = new FormData()
       fd.append('titulo', titulo.trim())
       fd.append('pdf', file)
-      await api('/api/mercado/encarte', {
+      const result = await api<{ ok: boolean; produtosExtraidos: number; log?: string }>('/api/mercado/encarte', {
         method: 'POST',
         body: fd,
       })
-      toast.success('Encarte enviado com sucesso!')
+      const n = (result as any).produtosExtraidos || 0
+      if (n > 0) {
+        toast.success(`Encarte enviado! ${n} produtos extraídos do PDF.`, { duration: 5000 })
+      } else {
+        toast.success('Encarte enviado! Nenhum produto foi extraído automaticamente (PDF pode ser imagem ou sem preços visíveis).', { duration: 6000 })
+      }
       setTitulo('')
       if (input) input.value = ''
       // Refresh

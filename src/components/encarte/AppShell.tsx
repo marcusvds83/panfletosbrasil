@@ -106,27 +106,27 @@ const TABS: TabDef[] = [
     key: 'home',
     label: 'Início',
     icon: <Home className="h-5 w-5" />,
-    showWhen: () => true,
+    showWhen: (s) => !s || s.tipo === 'usuario', // só consumidor
   },
   {
     key: 'comparar',
     label: 'Comparar',
     icon: <GitCompareArrows className="h-5 w-5" />,
-    showWhen: () => true,
+    showWhen: (s) => !s || s.tipo === 'usuario', // só consumidor
   },
   {
     key: 'lista',
     label: 'Minha Lista',
     icon: <ShoppingCart className="h-5 w-5" />,
-    showWhen: () => true,
+    showWhen: (s) => !s || s.tipo === 'usuario', // só consumidor
   },
   {
     key: 'mercado',
-    label: 'Mercado',
+    label: 'Painel',
     icon: <Store className="h-5 w-5" />,
-    showWhen: (s) => s?.tipo === 'mercado',
+    showWhen: (s) => s?.tipo === 'mercado', // só mercado vê o painel
   },
-  // Admin NÃO aparece no app (mobile nem desktop) — só via URL /admin separada
+  // Admin NÃO aparece no app — só via /admin
 ]
 
 // ── EB Logo ─────────────────────────────────────────────────────────────────
@@ -168,11 +168,15 @@ export default function AppShell() {
           status: data.status,
           photoURL: data.photoURL,
         })
-        // After login, navigate to home (admin/mercado will see their panel via conta tab)
-        if (data.tipo === 'admin' || data.tipo === 'mercado') {
-          setTab('mercado')
+        // After login, navigate to appropriate tab
+        if (data.tipo === 'mercado') {
+          setTab('mercado') // mercado vai direto pro painel
         } else if (data.tipo === 'usuario') {
-          setTab('home')
+          setTab('home') // consumidor vai pra home
+        } else if (data.tipo === 'admin') {
+          // admin não usa o app, redireciona para /admin
+          window.location.href = '/admin'
+          return
         }
       } else {
         setSession(null)
@@ -286,6 +290,39 @@ export default function AppShell() {
       <SessionCtx.Provider value={null}>
         <div className="min-h-screen flex flex-col bg-gradient-to-b from-orange-50 to-white">
           <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 flex items-center justify-center">
+            <MarketPanel onLogout={handleLogout} onLogin={checkAuth} />
+          </main>
+        </div>
+      </SessionCtx.Provider>
+    )
+  }
+
+  // Mercado: painel isolado (sem home, comparar, lista — apenas o painel dele)
+  if (session.tipo === 'mercado') {
+    return (
+      <SessionCtx.Provider value={session}>
+        <div className="min-h-screen flex flex-col bg-gray-50">
+          <header className="bg-gradient-to-r from-red-600 to-orange-500 text-white sticky top-0 z-50 shadow-md">
+            <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <EbLogo size="sm" />
+                <div>
+                  <h1 className="text-lg font-bold leading-tight">EncarteBrasil</h1>
+                  <p className="text-[10px] opacity-90 leading-tight">Painel do Mercado</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs opacity-90 truncate max-w-[140px]">
+                  {session.nome || session.email}
+                </span>
+                <Button variant="ghost" size="sm" onClick={handleLogout}
+                  className="text-white hover:bg-white/20 h-8 px-2">
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </header>
+          <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-20 lg:pb-6">
             <MarketPanel onLogout={handleLogout} onLogin={checkAuth} />
           </main>
         </div>
