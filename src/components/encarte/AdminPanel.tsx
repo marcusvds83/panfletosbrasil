@@ -620,10 +620,13 @@ function MarketRow({
 interface AdminPanelProps {
   onLogout: () => void
   onLogin: () => void
+  sessionOverride?: { tipo: 'admin'; id: string; email: string } | null
 }
 
-export default function AdminPanel({ onLogout, onLogin }: AdminPanelProps) {
-  const session = useSession()
+export default function AdminPanel({ onLogout, onLogin, sessionOverride }: AdminPanelProps) {
+  const ctxSession = useSession()
+  // Se recebeu sessionOverride (do AdminRoute), usa ele; senão usa o do contexto
+  const session = sessionOverride || ctxSession
   const [mercados, setMercados] = useState<AdminMercado[]>([])
   const [dataFetched, setDataFetched] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -666,8 +669,9 @@ export default function AdminPanel({ onLogout, onLogin }: AdminPanelProps) {
     toast.success('Lista atualizada')
   }
 
-  // ── Not logged in ─────────────────────────────────────────────────────
-  if (!loading && session?.tipo !== 'admin') {
+  // ── Not logged in — só mostra se NÃO tem sessionOverride (AppShell) ──
+  // AdminRoute já trata login separadamente, então não mostra AdminLoginForm aqui
+  if (!sessionOverride && !loading && session?.tipo !== 'admin') {
     return <AdminLoginForm onLogin={onLogin} />
   }
 

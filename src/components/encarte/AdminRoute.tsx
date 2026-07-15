@@ -94,7 +94,7 @@ export default function AdminRoute() {
           </div>
         </header>
         <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-6">
-          <AdminPanel onLogout={handleLogout} onLogin={checkAuth} />
+          <AdminPanel onLogout={handleLogout} onLogin={checkAuth} sessionOverride={session} />
         </main>
       </div>
     )
