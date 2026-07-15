@@ -918,12 +918,14 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
   const handleDeleteEncarte = async (eid: string) => {
     setDeletingEncarte(eid)
     try {
-      await api(`/api/mercado/encarte/${eid}`, { method: 'DELETE' })
+      await api<{ ok: boolean }>(`/api/mercado/encarte/${eid}`, { method: 'DELETE' })
       toast.success('Encarte excluído!')
       if (expandedEncarte === eid) setExpandedEncarte(null)
       refreshEncartes()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao excluir')
+    } catch (err: any) {
+      const msg = err?.message || 'Erro ao excluir'
+      console.error('[deleteEncarte]', msg)
+      toast.error(msg, { duration: 5000 })
     } finally {
       setDeletingEncarte(null)
     }
