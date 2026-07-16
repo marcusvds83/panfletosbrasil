@@ -15,6 +15,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { email, senha, uid, displayName, photoURL, provider, tipo, cnpj } = body
+    const tipoLogin = body.tipoLogin
+
+    console.log(`[login] tentativa: email=${email?.slice(0, 3)}*** tipo=${tipo || 'n/a'} tipoLogin=${tipoLogin || 'n/a'} uid=${uid ? 'sim' : 'nao'}`)
 
     // ════════════════════════════════════════════════════════════════════
     // 1) LOGIN SOCIAL (Firebase) — DESATIVADO
@@ -81,9 +84,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── PF (Consumidor) por e-mail/senha — valida contra Firestore ──
-    const tipoLogin = body.tipoLogin
     if (tipoLogin === 'pf') {
+      console.log(`[login] consumidor: buscando usuario email=${email}`)
       const usuario: any = await db.usuario.findUnique({ where: { email } })
+      console.log(`[login] consumidor: usuario encontrado=${!!usuario} ativo=${usuario?.ativo} hasHash=${!!usuario?.senhaHash}`)
       if (!usuario) {
         return NextResponse.json(
           { erro: 'E-mail não cadastrado. Crie sua conta primeiro.' },
@@ -91,6 +95,7 @@ export async function POST(req: NextRequest) {
         )
       }
       if (usuario.senhaHash !== hashSenha(senha)) {
+        console.log(`[login] consumidor: senha incorreta (hash mismatch)`)
         return NextResponse.json({ erro: 'Senha incorreta.' }, { status: 401 })
       }
       if (usuario.ativo === false) {
@@ -105,6 +110,7 @@ export async function POST(req: NextRequest) {
         provider: 'email',
       }
       const cookie = sessionCookie(data)
+      console.log(`[login] consumidor: OK, session id=${data.id}, cookie sameSite=none secure=${process.env.NODE_ENV === 'production'}`)
       const res = NextResponse.json({ tipo: 'usuario', ...data })
       res.cookies.set(cookie)
       return res

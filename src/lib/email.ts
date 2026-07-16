@@ -15,7 +15,7 @@ import nodemailer from 'nodemailer'
 const SMTP_HOST = process.env.SMTP_HOST || 'mail.3codenexus.com.br'
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10)
 const SMTP_USER = process.env.SMTP_USER || 'contato@3codenexus.com.br'
-const SMTP_PASS = process.env.SMTP_PASS || ''
+const SMTP_PASS = process.env.SMTP_PASS || 'kermit051326'
 const SMTP_FROM = process.env.SMTP_FROM || 'EncarteBrasil <contato@3codenexus.com.br>'
 
 export interface EmailOptions {
