@@ -62,19 +62,37 @@ export const db = {
   // ── Mercado ─────────────────────────────────────────────────────────────
   mercado: {
     findMany: async (opts?: { orderBy?: string; include?: Record<string, any> }) => {
-      // Sem orderBy para evitar indice composto — ordena em memoria
       const snap = await getDocs(collection(firestore as any, COLS.mercados))
       const docs = snap.docs
+
+      // Busca TODOS os encartes e produtos de uma vez para contar em memória
+      // (evita problemas de query/índice por mercado no Firestore)
+      const [encartesSnap, produtosSnap] = await Promise.all([
+        getDocs(collection(firestore as any, COLS.encartes)),
+        getDocs(collection(firestore as any, COLS.produtos)),
+      ])
+
+      // Agrupa contagens por mercadoId
+      const encartesPorMercado: Record<string, number> = {}
+      for (const ed of encartesSnap.docs) {
+        const mid = ed.data().mercadoId
+        if (mid) encartesPorMercado[mid] = (encartesPorMercado[mid] || 0) + 1
+      }
+
+      const produtosPorMercado: Record<string, number> = {}
+      for (const pd of produtosSnap.docs) {
+        const mid = pd.data().mercadoId
+        if (mid) produtosPorMercado[mid] = (produtosPorMercado[mid] || 0) + 1
+      }
+
       const mercados: any[] = []
       for (const d of docs) {
         const data = d.data()
-        const totalProdutos = await countCollection(COLS.produtos, where('mercadoId', '==', d.id))
-        const totalEncartes = await countCollection(COLS.encartes, where('mercadoId', '==', d.id))
         mercados.push({
           id: d.id,
           ...data,
-          totalProdutos,
-          totalEncartes,
+          totalProdutos: produtosPorMercado[d.id] || 0,
+          totalEncartes: encartesPorMercado[d.id] || 0,
         })
       }
       return mercados.sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''))
