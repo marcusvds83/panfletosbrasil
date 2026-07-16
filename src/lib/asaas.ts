@@ -15,7 +15,7 @@
  */
 
 const ASAAS_BASE = 'https://api.asaas.com/v3'
-const ASAAS_API_KEY = process.env.ASAAS_API_KEY || 'aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmIxOTEwZDlkLTIzZWQtNDJiOS04MDVlLTI4ODM3ZDA4OTM2ZTo6JGFhY2hfYzFjYWZmYjktOTFmZi00MDU5LWIzZjEtYWZlNzY0NGJhMGJk'
+const ASAAS_API_KEY = process.env.ASAAS_API_KEY || 'aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OmIxOTEwZDlkLTIzZWQtNDJiOS04MDVlLTI4ODM3ZDA4OTM2ZTo6JGFhY2hfYzFjYWZmYjktOTFmZi00MDU5LWIzNjEtYWZlNzY0NGJhMGJk'
 
 async function asaasFetch(path: string, options: RequestInit = {}) {
   const url = `${ASAAS_BASE}${path}`
