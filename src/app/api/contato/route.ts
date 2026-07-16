@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
     try {
       const odooPayload = {
         name: assunto,
+        partner_id: tipo === 'mercado' ? 'MERCADO' : 'CONSUMIDOR',
         team_id: tipo === 'mercado' ? 2 : 1,
         partner_phone: telefone || '',
         x_studio_contato_do_mercado_1: msgNome,
@@ -117,11 +118,11 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify(odooPayload),
       })
+      const odooBody = await odooRes.text().catch(() => '')
       if (odooRes.ok) {
-        console.log(`[contato] Odoo OK — status ${odooRes.status}`)
+        console.log(`[contato] Odoo OK — status ${odooRes.status} body: ${odooBody}`)
       } else {
-        const errText = await odooRes.text().catch(() => '')
-        console.error(`[contato] Odoo erro ${odooRes.status}: ${errText}`)
+        console.error(`[contato] Odoo erro ${odooRes.status}: ${odooBody}`)
       }
     } catch (odooErr: any) {
       console.error(`[contato] Odoo falha: ${odooErr?.message || odooErr}`)
