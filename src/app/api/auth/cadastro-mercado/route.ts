@@ -57,11 +57,11 @@ export async function POST(req: NextRequest) {
 
     const existenteCnpj = await db.mercado.findUnique({ where: { cnpj: cnpjLimpo } })
     if (existenteCnpj) {
-      return NextResponse.json({ erro: 'Já existe mercado cadastrado com este CNPJ.' }, { status: 409 })
+      return NextResponse.json({ erro: 'Já existe empresa cadastrada com este CNPJ.' }, { status: 409 })
     }
     const existenteEmail = await db.mercado.findUnique({ where: { emailLogin: email } })
     if (existenteEmail) {
-      return NextResponse.json({ erro: 'Já existe mercado cadastrado com este e-mail.' }, { status: 409 })
+      return NextResponse.json({ erro: 'Já existe empresa cadastrada com este e-mail.' }, { status: 409 })
     }
 
     const agora = new Date()

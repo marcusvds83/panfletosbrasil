@@ -21,7 +21,7 @@ export async function DELETE(
     const encarte = todosEncartes.find((e: any) => e.id === eid)
     if (!encarte) {
       console.log('[encarte delete] encarte não encontrado para eid=', eid, 'mercadoId=', session.id, 'total encartes=', todosEncartes.length)
-      return NextResponse.json({ erro: 'Encarte não encontrado ou não pertence ao seu mercado' }, { status: 404 })
+      return NextResponse.json({ erro: 'Encarte não encontrado ou não pertence à sua empresa' }, { status: 404 })
     }
 
     // Deleta o encarte e todos os produtos associados

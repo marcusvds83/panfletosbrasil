@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const mercado = await db.mercado.findUnique({ where: { id: mercadoId } })
     if (!mercado) {
-      return NextResponse.json({ erro: 'Mercado não encontrado' }, { status: 404 })
+      return NextResponse.json({ erro: 'Empresa não encontrada' }, { status: 404 })
     }
 
     const m = mercado as any
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     const mercado = await db.mercado.findUnique({ where: { id } })
     if (!mercado) {
-      return NextResponse.json({ erro: 'Mercado não encontrado' }, { status: 404 })
+      return NextResponse.json({ erro: 'Empresa não encontrada' }, { status: 404 })
     }
 
     const m = mercado as any

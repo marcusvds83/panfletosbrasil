@@ -119,7 +119,7 @@ export default function MarketAccountView({ onLogout }: { onLogout: () => void }
             {(perfil?.nome || 'M')[0].toUpperCase()}
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-800">{perfil?.nome || 'Mercado'}</h2>
+            <h2 className="text-lg font-bold text-gray-800">{perfil?.nome || 'Empresa'}</h2>
             <div className="flex items-center gap-2 mt-0.5">
               <Badge className={cn('text-[10px]', st.cls)}>{st.text}</Badge>
               <span className="text-xs text-gray-500">{perfil?.cidade}/{perfil?.estado}</span>
@@ -149,7 +149,7 @@ export default function MarketAccountView({ onLogout }: { onLogout: () => void }
           {editing ? (
             <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs">Nome do Mercado</Label>
+                <Label className="text-xs">Nome da Empresa</Label>
                 <Input value={nome} onChange={(e) => setNome(e.target.value)} className="h-9 text-sm" />
               </div>
               <div className="space-y-1.5">

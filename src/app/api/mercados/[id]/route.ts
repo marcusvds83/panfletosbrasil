@@ -13,7 +13,7 @@ export async function GET(
   try {
     const { id } = await params
     const mercado = await db.mercado.findUniqueWithRelations(id)
-    if (!mercado) return NextResponse.json({ erro: 'Mercado não encontrado' }, { status: 404 })
+    if (!mercado) return NextResponse.json({ erro: 'Empresa não encontrada' }, { status: 404 })
 
     const agora = new Date()
 

@@ -202,7 +202,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
   const [esqueciNovaSenha, setEsqueciNovaSenha] = useState('')
   const [esqueciLoading, setEsqueciLoading] = useState(false)
 
-  // PJ (Mercado) — CNPJ + e-mail + senha + cadastro
+  // PJ (Empresa) — CNPJ + e-mail + senha + cadastro
   const [cnpj, setCnpj] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
@@ -279,7 +279,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
         method: 'POST',
         body: JSON.stringify({ email, senha, tipo: 'mercado', cnpj: cnpjLimpo, tipoLogin: 'pj' }),
       })
-      toast.success('Login de mercado realizado!')
+      toast.success('Login de empresa realizado!')
       onLogin()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao fazer login')
@@ -325,11 +325,11 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
           segmento,
         }),
       })
-      const segmentoLabel = segmento === 'farmacias' ? 'Farmácia' : segmento === 'petshops' ? 'PetShop' : 'Mercado'
+      const segmentoLabel = segmento === 'farmacias' ? 'Farmácia' : segmento === 'petshops' ? 'PetShop' : 'Empresa'
       toast.success(`${segmentoLabel} cadastrado! 60 dias de piloto grátis.`)
       onLogin()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao cadastrar mercado')
+      toast.error(err instanceof Error ? err.message : 'Erro ao cadastrar empresa')
     } finally {
       setLoading(false)
     }
@@ -357,7 +357,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
           <Tabs value={tab} onValueChange={(v) => setTab(v as 'pf' | 'pj')}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="pf">Consumidor</TabsTrigger>
-              <TabsTrigger value="pj">Mercado (CNPJ)</TabsTrigger>
+              <TabsTrigger value="pj">Empresa (CNPJ)</TabsTrigger>
             </TabsList>
 
             {/* ── PF: Email/Senha + Cadastro (sem Google) ── */}
@@ -441,7 +441,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
               )}
             </TabsContent>
 
-            {/* ── PJ: Login + Cadastro de Mercado ── */}
+            {/* ── PJ: Login + Cadastro de Empresa ── */}
             <TabsContent value="pj" className="space-y-3 mt-4">
               {!modoCadastroPj ? (
                 <>
@@ -463,7 +463,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                       <Input
                         id="m-email"
                         type="email"
-                        placeholder="seu@mercado.com"
+                        placeholder="sua@empresa.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         autoComplete="email"
@@ -486,7 +486,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                       disabled={loading}
                     >
                       {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Entrar como Mercado
+                      Entrar como Empresa
                     </Button>
                   </form>
                   <p className="text-[11px] text-gray-400 text-center pt-1">
@@ -496,7 +496,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                       onClick={() => setModoCadastroPj(true)}
                       className="text-red-600 font-semibold hover:underline"
                     >
-                      Cadastre seu mercado grátis
+                      Cadastre sua empresa grátis
                     </button>
                   </p>
                   <p className="text-center">
@@ -512,11 +512,11 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
               ) : (
                 <>
                   <p className="text-xs text-gray-500 text-center mb-2">
-                    Cadastre seu mercado — 60 dias de piloto grátis
+                    Cadastre sua empresa — 60 dias de piloto grátis
                   </p>
                   <form onSubmit={handlePjCadastro} className="space-y-3">
                     <div className="space-y-1.5">
-                      <Label className="text-sm">Nome do mercado *</Label>
+                      <Label className="text-sm">Nome da empresa *</Label>
                       <Input
                         type="text"
                         placeholder="Supermercado Exemplo"
@@ -532,7 +532,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <option value="">Selecione...</option>
-                        <option value="mercados">Mercados</option>
+                        <option value="mercados">Supermercados</option>
                         <option value="farmacias">Farmácias</option>
                         <option value="petshops">PetShops</option>
                       </select>
@@ -583,7 +583,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                       <Label className="text-sm">E-mail *</Label>
                       <Input
                         type="email"
-                        placeholder="contato@mercado.com"
+                        placeholder="contato@empresa.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         autoComplete="email"
@@ -626,7 +626,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                       disabled={loading}
                     >
                       {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Cadastrar Mercado
+                      Cadastrar Empresa
                     </Button>
                   </form>
                   <p className="text-[11px] text-gray-400 text-center pt-1">
@@ -1554,7 +1554,7 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
                   </div>
                 ) : (
                   <form onSubmit={handleSuporte} className="space-y-3">
-                    <p className="text-xs text-blue-700/70">Sua mensagem será identificada com o mercado <strong>{conta.nome}</strong>.</p>
+                    <p className="text-xs text-blue-700/70">Sua mensagem será identificada com a empresa <strong>{conta.nome}</strong>.</p>
                     <Select value={suporteCat} onValueChange={setSuporteCat}>
                       <SelectTrigger className="h-10"><SelectValue placeholder="Categoria" /></SelectTrigger>
                       <SelectContent>
@@ -2253,7 +2253,7 @@ function PaymentBlockScreen({ conta }: { conta: ContaData }) {
     }
   }
 
-  const segmentoLabel = conta.segmento === 'farmacias' ? 'Farmácia' : conta.segmento === 'petshops' ? 'PetShop' : 'Mercado'
+  const segmentoLabel = conta.segmento === 'farmacias' ? 'Farmácia' : conta.segmento === 'petshops' ? 'PetShop' : 'Empresa'
   const isAguardando = conta.status === 'ativo_aguardando_pagamento' || conta.statusEfetivo === 'ativo_aguardando_pagamento'
   const isCancelado = conta.statusEfetivo === 'assinatura_cancelada'
 
@@ -2280,7 +2280,7 @@ function PaymentBlockScreen({ conta }: { conta: ContaData }) {
               {isCancelado
                 ? 'Sua assinatura foi cancelada e o período de carência acabou. Para voltar a utilizar o Panfletos Brasil, assine novamente.'
                 : isAguardando
-                  ? 'Seu mercado foi ativado pelo administrador! Para começar a utilizar o Panfletos Brasil e publicar seus panfletos, efetue o pagamento da mensalidade abaixo.'
+                  ? 'Sua empresa foi ativada pelo administrador! Para começar a utilizar o Panfletos Brasil e publicar seus panfletos, efetue o pagamento da mensalidade abaixo.'
                   : 'Seu período de teste de 60 dias terminou. Para continuar utilizando o Panfletos Brasil e publicando seus panfletos, regularize sua assinatura.'}
             </p>
           </div>

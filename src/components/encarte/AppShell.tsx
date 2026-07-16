@@ -260,7 +260,6 @@ export default function AppShell() {
           <HomeView
             sessionId={sessionId}
             onAddToList={handleAddToList}
-            onPainelMercado={() => setTab('mercado')}
           />
         )
       case 'comparar':
@@ -276,7 +275,6 @@ export default function AppShell() {
           <HomeView
             sessionId={sessionId}
             onAddToList={handleAddToList}
-            onPainelMercado={() => setTab('mercado')}
           />
         )
     }
@@ -329,7 +327,7 @@ export default function AppShell() {
                 <div>
                   <h1 className="text-lg font-bold leading-tight">Panfletos Brasil</h1>
                   <p className="text-[10px] opacity-90 leading-tight">
-                    {tab === 'conta_mercado' ? 'Minha Conta' : 'Painel do Mercado'}
+                    {tab === 'conta_mercado' ? 'Minha Conta' : 'Painel da Empresa'}
                   </p>
                 </div>
               </div>

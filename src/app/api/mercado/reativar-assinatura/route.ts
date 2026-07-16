@@ -16,7 +16,7 @@ export async function POST() {
 
     const mercado = await db.mercado.findUnique({ where: { id: session.id } })
     if (!mercado) {
-      return NextResponse.json({ erro: 'Mercado não encontrado' }, { status: 404 })
+      return NextResponse.json({ erro: 'Empresa não encontrada' }, { status: 404 })
     }
 
     // Limpa dados da assinatura antiga e marca como aguardando pagamento

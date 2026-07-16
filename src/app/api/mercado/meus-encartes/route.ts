@@ -16,7 +16,7 @@ export async function GET() {
     // Usa findUniqueWithRelations que retorna encartes + produtos
     const detail: any = await db.mercado.findUniqueWithRelations(session.id)
     if (!detail) {
-      return NextResponse.json({ erro: 'Mercado não encontrado' }, { status: 404 })
+      return NextResponse.json({ erro: 'Empresa não encontrada' }, { status: 404 })
     }
 
     // Formata encartes com produtos

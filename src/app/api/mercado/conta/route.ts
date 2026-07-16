@@ -18,7 +18,7 @@ export async function GET() {
         ultimoPagamento: true, ultimoPagamentoValor: true,
       },
     })
-    if (!mercado) return NextResponse.json({ erro: 'Mercado não encontrado' }, { status: 404 })
+    if (!mercado) return NextResponse.json({ erro: 'Empresa não encontrada' }, { status: 404 })
 
     const m = mercado as any
     const agora = new Date()

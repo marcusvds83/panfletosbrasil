@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       const m: any = await db.mercado.findUnique({ where: { cnpj: cnpjLimpo } })
       if (!m) {
         return NextResponse.json(
-          { erro: 'CNPJ não encontrado. Cadastre seu mercado.' },
+          { erro: 'CNPJ não encontrado. Cadastre sua empresa.' },
           { status: 404 },
         )
       }

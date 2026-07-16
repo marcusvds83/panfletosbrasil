@@ -17,7 +17,7 @@ export async function GET() {
     })
 
     if (!mercado) {
-      return NextResponse.json({ erro: 'Mercado não encontrado' }, { status: 404 })
+      return NextResponse.json({ erro: 'Empresa não encontrada' }, { status: 404 })
     }
 
     return NextResponse.json({

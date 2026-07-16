@@ -12,7 +12,7 @@ export async function POST(
     const { id } = await params
 
     const m: any = await db.mercado.findUnique({ where: { id } })
-    if (!m) return NextResponse.json({ erro: 'Mercado não encontrado' }, { status: 404 })
+    if (!m) return NextResponse.json({ erro: 'Empresa não encontrada' }, { status: 404 })
 
     const currentDestaque = m.destaque || false
     await db.mercado.update(id, { destaque: !currentDestaque })

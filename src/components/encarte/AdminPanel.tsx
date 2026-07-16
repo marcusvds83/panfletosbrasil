@@ -278,7 +278,7 @@ function NewMarketForm({ onCreated }: { onCreated: () => void }) {
           mensalidade: parseInt(form.mensalidade) || 399,
         }),
       })
-      toast.success(`Mercado "${nome}" cadastrado com sucesso!`)
+      toast.success(`Empresa "${nome}" cadastrada com sucesso!`)
       setOpen(false)
       setForm({
         nome: '',
@@ -304,12 +304,12 @@ function NewMarketForm({ onCreated }: { onCreated: () => void }) {
       <DialogTrigger asChild>
         <Button className="bg-red-600 hover:bg-red-700 text-white text-sm h-9">
           <Plus className="h-4 w-4 mr-1.5" />
-          Cadastrar Novo Mercado
+          Cadastrar Nova Empresa
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Cadastrar Novo Mercado</DialogTitle>
+          <DialogTitle>Cadastrar Nova Empresa</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3 mt-2">
           <div className="space-y-1.5">
@@ -336,7 +336,7 @@ function NewMarketForm({ onCreated }: { onCreated: () => void }) {
                 type="email"
                 value={form.email}
                 onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="contato@mercado.com"
+                placeholder="contato@empresa.com"
               />
             </div>
             <div className="space-y-1.5">
@@ -413,7 +413,7 @@ function NewMarketForm({ onCreated }: { onCreated: () => void }) {
             disabled={loading}
           >
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Cadastrar Mercado
+            Cadastrar Empresa
           </Button>
         </form>
       </DialogContent>
@@ -652,7 +652,7 @@ function MarketRow({
     try {
       await api(`/api/admin/destaque/${m.id}`, { method: 'POST' })
       toast.success(
-        m.destaque ? 'Destaque removido' : 'Mercado destacado!',
+        m.destaque ? 'Destaque removido' : 'Empresa destacada!',
       )
       onRefresh()
     } catch (err) {
@@ -1038,7 +1038,7 @@ export default function AdminPanel({ onLogout, onLogin, sessionOverride }: Admin
             Painel Administrativo
           </h2>
           <p className="text-sm text-gray-500">
-            {totalMercados} mercado{totalMercados !== 1 ? 's' : ''} cadastrado
+            {totalMercados} empresa{totalMercados !== 1 ? 's' : ''} cadastrada
             {totalMercados !== 1 ? 's' : ''}
           </p>
         </div>

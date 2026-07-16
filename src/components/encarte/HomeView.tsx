@@ -351,7 +351,7 @@ function MarketDetailView({
   if (error || !detail) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-500">{error || 'Mercado não encontrado'}</p>
+        <p className="text-red-500">{error || 'Empresa não encontrada'}</p>
         <Button variant="outline" onClick={onBack} className="mt-4">
           <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
         </Button>
@@ -702,10 +702,9 @@ interface HomeViewProps {
     mercadoNome?: string | null
     mercadoCidade?: string | null
   }) => void
-  onPainelMercado?: () => void
 }
 
-export default function HomeView({ sessionId, onAddToList, onPainelMercado }: HomeViewProps) {
+export default function HomeView({ sessionId, onAddToList }: HomeViewProps) {
   const [mercados, setMercados] = useState<MercadoSummary[]>([])
   const [destaques, setDestaques] = useState<MercadoSummary[]>([])
   const [maisBaratos, setMaisBaratos] = useState<any[]>([])
@@ -837,17 +836,7 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
 
   return (
     <div className="space-y-5">
-      {/* Botão Painel do Mercado — visível para todos */}
-      {onPainelMercado && (
-        <button
-          type="button"
-          onClick={() => onPainelMercado()}
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-orange-500 text-white text-sm font-semibold py-2.5 px-4 rounded-xl shadow-sm hover:shadow-md transition-shadow"
-        >
-          <Store className="h-4 w-4" />
-          Painel do Mercado (CNPJ)
-        </button>
-      )}
+
 
       {/* ═══════════════════════════════════════════════════════════════
           SEÇÃO 1: Itens mais baratos em promoção (com busca por produto)
@@ -958,12 +947,12 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          SEÇÃO 2: Mercados em destaque (patrocinados)
+          SEÇÃO 2: Empresas em destaque (patrocinadas)
           ═══════════════════════════════════════════════════════════════ */}
       {destaquesUnicos.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-            <Star className="h-4 w-4 text-amber-500" /> Mercados em destaque
+            <Star className="h-4 w-4 text-amber-500" /> Empresas em destaque
           </h2>
           <ScrollArea className="w-full" ref={scrollRef}>
             <div className="flex gap-4 pb-2">
@@ -981,11 +970,11 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
       )}
 
       {/* ═══════════════════════════════════════════════════════════════
-          SEÇÃO 3: Todos os mercados cadastrados (com busca e filtro por região)
+          SEÇÃO 3: Todas as empresas cadastradas (com busca e filtro por região)
           ═══════════════════════════════════════════════════════════════ */}
       <section>
         <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-          <Store className="h-4 w-4 text-red-600" /> Mercados
+          <Store className="h-4 w-4 text-red-600" /> Empresas
         </h2>
 
         {/* Search + Region Filter */}
@@ -993,7 +982,7 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Buscar mercado por nome..."
+              placeholder="Buscar empresa por nome..."
               className="pl-9 h-10"
               value={searchMercado}
               onChange={(e) => setSearchMercado(e.target.value)}
@@ -1024,7 +1013,7 @@ export default function HomeView({ sessionId, onAddToList, onPainelMercado }: Ho
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <Search className="h-10 w-10 mx-auto mb-3 opacity-50" />
-            <p className="text-sm">Nenhum mercado encontrado</p>
+            <p className="text-sm">Nenhuma empresa encontrada</p>
             <p className="text-xs mt-1">Tente ajustar os filtros de busca ou região</p>
           </div>
         ) : (
