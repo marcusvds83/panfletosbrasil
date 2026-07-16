@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
         telefone: '(11) 99999-0000',
         emailLogin: 'super@central.com',
         senhaHash: hashSenha('super123'),
-        mensalidade: 599,
+        mensalidade: 399,
         status: 'piloto',
         pilotoInicio: agora.toISOString(),
         pilotoFim: pilotoFim.toISOString(),

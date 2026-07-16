@@ -32,7 +32,7 @@ export async function GET() {
       status: mercado.status,
       pilotoInicio: mercado.pilotoInicio || null,
       pilotoFim: mercado.pilotoFim || null,
-      mensalidade: mercado.mensalidade || 599,
+      mensalidade: mercado.mensalidade || 399,
     })
   } catch (e) {
     console.error('[mercado/perfil GET] erro:', e)

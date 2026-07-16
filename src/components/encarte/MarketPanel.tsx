@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LogIn,
@@ -26,6 +26,8 @@ import {
   Pencil,
   CreditCard,
   Calendar,
+  Lock,
+  QrCode,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,6 +78,7 @@ interface ContaData {
   pilotoFim?: string | null
   endereco?: string | null
   telefone?: string | null
+  segmento?: string | null
 }
 
 interface BITopProduto {
@@ -194,6 +197,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
   const [cidade, setCidade] = useState('')
   const [estado, setEstado] = useState('')
   const [telefone, setTelefone] = useState('')
+  const [segmento, setSegmento] = useState('')
 
   const handlePfEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -271,7 +275,7 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
     e.preventDefault()
     const cnpjLimpo = cnpj.replace(/\D/g, '')
     const cpfLimpo = cpf.replace(/\D/g, '')
-    if (!nomeMercado || !cnpjLimpo || !email || !senha || !cidade || !estado || !responsavel || !cpfLimpo) {
+    if (!nomeMercado || !cnpjLimpo || !email || !senha || !cidade || !estado || !responsavel || !cpfLimpo || !segmento) {
       toast.error('Preencha todos os campos obrigatórios')
       return
     }
@@ -301,9 +305,11 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
           responsavel,
           cpf: cpfLimpo,
           telefone,
+          segmento,
         }),
       })
-      toast.success('Mercado cadastrado! 60 dias de piloto grátis.')
+      const segmentoLabel = segmento === 'farmacias' ? 'Farmácia' : segmento === 'petshops' ? 'PetShop' : 'Mercado'
+      toast.success(`${segmentoLabel} cadastrado! 60 dias de piloto grátis.`)
       onLogin()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao cadastrar mercado')
@@ -500,6 +506,19 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                         value={nomeMercado}
                         onChange={(e) => setNomeMercado(e.target.value)}
                       />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm">Segmento *</Label>
+                      <select
+                        value={segmento}
+                        onChange={(e) => setSegmento(e.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <option value="">Selecione...</option>
+                        <option value="mercados">Mercados</option>
+                        <option value="farmacias">Farmácias</option>
+                        <option value="petshops">PetShops</option>
+                      </select>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1.5">
@@ -753,6 +772,12 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
   // Delete encarte
   const [deletingEncarte, setDeletingEncarte] = useState<string | null>(null)
 
+  // Manual entry state
+  const [manualEntryOpen, setManualEntryOpen] = useState(false)
+  const [manualItens, setManualItens] = useState<Array<{nome: string; marca: string; preco: string; unidade: string}>>([])
+  const [manualItem, setManualItem] = useState({nome: '', marca: '', preco: '', unidade: 'un'})
+  const lastEncarteIdRef = useRef<string>('')
+
   // Delete produto individual
   const [deletingProduto, setDeletingProduto] = useState<string | null>(null)
 
@@ -873,8 +898,9 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
         setReviewProdutos(produtos)
         setReviewOpen(true)
       } else {
-        const logMsg = result.log || ''
-        toast.error(`Encarte enviado mas nenhum produto extraído. ${logMsg}`, { duration: 8000 })
+        lastEncarteIdRef.current = result.encarte?.id || ''
+        toast.error('Nenhum produto extraído do PDF. Você pode adicionar os itens manualmente.', { duration: 6000 })
+        setManualEntryOpen(true)
       }
       setTitulo('')
       setDataInicio('')
@@ -916,6 +942,55 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
   // Excluir produto da revisão
   const removeReviewProduto = (index: number) => {
     setReviewProdutos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  // Manual entry handlers
+  const [manualPublishing, setManualPublishing] = useState(false)
+
+  const handleAddManualItem = () => {
+    if (!manualItem.nome.trim() || !manualItem.preco.trim()) {
+      toast.error('Nome e preço são obrigatórios')
+      return
+    }
+    const precoNum = parseFloat(manualItem.preco.replace(',', '.'))
+    if (isNaN(precoNum) || precoNum <= 0) {
+      toast.error('Preço inválido')
+      return
+    }
+    setManualItens((prev) => [...prev, { ...manualItem }])
+    setManualItem({ nome: '', marca: '', preco: '', unidade: 'un' })
+  }
+
+  const handleRemoveManualItem = (index: number) => {
+    setManualItens((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handlePublishManual = async () => {
+    if (manualItens.length === 0) {
+      toast.error('Adicione pelo menos um produto')
+      return
+    }
+    if (!lastEncarteIdRef.current) {
+      toast.error('Encarte não encontrado. Tente enviar o PDF novamente.')
+      return
+    }
+    setManualPublishing(true)
+    try {
+      await api<{ ok: boolean; totalItens: number }>('/api/mercado/encarte/manual', {
+        method: 'POST',
+        body: JSON.stringify({ encarteId: lastEncarteIdRef.current, itens: manualItens }),
+      })
+      toast.success(`${manualItens.length} produto(s) publicado(s) com sucesso!`)
+      setManualEntryOpen(false)
+      setManualItens([])
+      setManualItem({ nome: '', marca: '', preco: '', unidade: 'un' })
+      lastEncarteIdRef.current = ''
+      refreshEncartes()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao publicar encarte')
+    } finally {
+      setManualPublishing(false)
+    }
   }
 
   // Excluir encarte
@@ -977,6 +1052,11 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
   const isPilotoActive = conta.status === 'piloto' && pilotoDaysLeft !== null && pilotoDaysLeft > 0
   const isPilotoExpirado = conta.statusEfetivo === 'piloto_expirado'
   const isAtivo = conta.status === 'ativo'
+
+  // ── Tela de bloqueio quando piloto expira ──
+  if (isPilotoExpirado) {
+    return <PaymentBlockScreen conta={conta} />
+  }
 
   return (
     <div className="space-y-6">
@@ -1088,7 +1168,7 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
           <div className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-xs text-amber-800 leading-relaxed">
             <span className="text-amber-500 text-base mt-0.5 shrink-0">⚠</span>
             <span>
-              <strong>Formato do PDF:</strong> o encarte precisa conter os produtos em <strong>texto</strong> (nome + preço). Encartes feitos no Canva, Designer ou outras ferramentas de design que exportam os produtos como <strong>imagens</strong> (textos transformados em figura) não serão lidos pelo sistema. Certifique-se de que o PDF tenha texto selecionável.
+              <strong>Formato do PDF:</strong> envie encartes em PDF com <strong>texto</strong> (nome + preço). Encartes feitos no Canva, Designer ou outras ferramentas de design que exportam os produtos como <strong>imagens</strong> (textos transformados em figura) não serão lidos pelo sistema. Se o PDF não for lido total ou parcialmente pelo app, você poderá incluir os itens manualmente.
             </span>
           </div>
           {uploading ? (
@@ -1764,6 +1844,164 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Modal de Entrada Manual ── */}
+      <AnimatePresence>
+        {manualEntryOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4"
+            onClick={() => { if (!manualPublishing) setManualEntryOpen(false) }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <Pencil className="h-5 w-5 text-orange-500" />
+                  <h3 className="text-base font-bold text-gray-800">Adicionar Itens Manualmente</h3>
+                </div>
+                <button onClick={() => !manualPublishing && setManualEntryOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Form row */}
+              <div className="px-5 py-4 border-b border-gray-100">
+                <div className="grid grid-cols-5 gap-2 items-end">
+                  <div className="col-span-2">
+                    <Label className="text-[10px] text-gray-500 mb-1 block">Nome do produto</Label>
+                    <Input
+                      placeholder="Ex: Arroz"
+                      value={manualItem.nome}
+                      onChange={(e) => setManualItem((p) => ({ ...p, nome: e.target.value }))}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-gray-500 mb-1 block">Marca</Label>
+                    <Input
+                      placeholder="Marca"
+                      value={manualItem.marca}
+                      onChange={(e) => setManualItem((p) => ({ ...p, marca: e.target.value }))}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-gray-500 mb-1 block">Preço (R$)</Label>
+                    <Input
+                      placeholder="0,00"
+                      value={manualItem.preco}
+                      onChange={(e) => setManualItem((p) => ({ ...p, preco: e.target.value }))}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    <div className="flex-1">
+                      <Label className="text-[10px] text-gray-500 mb-1 block">Un.</Label>
+                      <Select value={manualItem.unidade} onValueChange={(v) => setManualItem((p) => ({ ...p, unidade: v }))}>
+                        <SelectTrigger className="h-9 text-xs px-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="un">un</SelectItem>
+                          <SelectItem value="kg">kg</SelectItem>
+                          <SelectItem value="g">g</SelectItem>
+                          <SelectItem value="L">L</SelectItem>
+                          <SelectItem value="ml">ml</SelectItem>
+                          <SelectItem value="cx">cx</SelectItem>
+                          <SelectItem value="pç">pç</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      className="bg-red-600 hover:bg-red-700 text-white h-9 w-9 shrink-0 p-0"
+                      onClick={handleAddManualItem}
+                    >
+                      <span className="text-lg leading-none">+</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lista de itens adicionados */}
+              <div className="flex-1 overflow-y-auto px-5 py-3">
+                {manualItens.length === 0 ? (
+                  <div className="text-center py-10">
+                    <Package className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">Nenhum item adicionado ainda.</p>
+                    <p className="text-xs text-gray-400 mt-1">Preencha os campos acima e clique em <strong>+</strong>.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-gray-500 font-medium mb-2">
+                      {manualItens.length} item{manualItens.length !== 1 ? 's' : ''} adicionado{manualItens.length !== 1 ? 's' : ''}
+                    </p>
+                    {manualItens.map((item, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.02 }}
+                        className="flex items-center justify-between px-3 py-2.5 bg-gray-50 rounded-lg border border-gray-100 hover:border-red-200 transition-colors group"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate text-gray-800">{item.nome}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {item.marca && <span className="text-[10px] text-gray-400">{item.marca}</span>}
+                            <span className="text-[10px] text-blue-500">{item.unidade}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-sm font-bold text-red-600">R$ {item.preco}</span>
+                          <button
+                            onClick={() => handleRemoveManualItem(idx)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all p-1"
+                            title="Remover item"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-10 text-sm"
+                  onClick={() => setManualEntryOpen(false)}
+                  disabled={manualPublishing}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white h-10 text-sm font-semibold"
+                  onClick={handlePublishManual}
+                  disabled={manualPublishing || manualItens.length === 0}
+                >
+                  {manualPublishing ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Publicando...</>
+                  ) : (
+                    <><CheckCircle className="h-4 w-4 mr-2" /> Publicar Encarte</>
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -1816,4 +2054,145 @@ export default function MarketPanel({ onLogout, onLogin }: MarketPanelProps) {
   }
 
   return <Dashboard conta={conta} onLogout={onLogout} />
+}
+
+// ── Tela de Bloqueio / Pagamento Asaas ──────────────────────────────────────
+
+function PaymentBlockScreen({ conta }: { conta: ContaData }) {
+  const [loading, setLoading] = useState(false)
+  const [paymentData, setPaymentData] = useState<any>(null)
+  const [error, setError] = useState('')
+
+  const handlePay = async (tipo: 'PIX' | 'BOLETO') => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await api('/api/asaas/checkout', {
+        method: 'POST',
+        body: JSON.stringify({ billingType: tipo }),
+      })
+      setPaymentData(res)
+    } catch (err: any) {
+      setError(err?.message || 'Erro ao gerar pagamento')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const segmentoLabel = conta.segmento === 'farmacias' ? 'Farmácia' : conta.segmento === 'petshops' ? 'PetShop' : 'Mercado'
+
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-red-600 to-orange-500 p-6 text-center">
+          <div className="h-16 w-16 mx-auto mb-3 bg-white/20 rounded-full flex items-center justify-center">
+            <Lock className="h-8 w-8 text-white" />
+          </div>
+          <h2 className="text-xl font-bold text-white">Período de Piloto Encerrado</h2>
+          <p className="text-white/80 text-sm mt-1">
+            {conta.nome}
+          </p>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-5">
+          <div className="text-center">
+            <p className="text-gray-600 text-sm">
+              Seu período de teste de 60 dias terminou. Para continuar utilizando o Panfletos Brasil e publicando seus panfletos, regularize sua assinatura.
+            </p>
+          </div>
+
+          {/* Valor */}
+          <div className="bg-gray-50 rounded-xl p-4 text-center">
+            <p className="text-xs text-gray-500 uppercase tracking-wide">Mensalidade — {segmentoLabel}</p>
+            <p className="text-3xl font-bold text-gray-800 mt-1">
+              R$ {conta.mensalidade || 399},00
+            </p>
+            <p className="text-xs text-gray-400 mt-1">/mês</p>
+          </div>
+
+          {/* Payment result */}
+          {paymentData && (
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
+              <p className="text-green-700 text-sm font-medium text-center">
+                Pagamento gerado com sucesso!
+              </p>
+              {paymentData.billingType === 'PIX' && paymentData.pixQrCode && (
+                <div className="text-center space-y-2">
+                  <p className="text-xs text-gray-500">Escaneie o QR Code PIX:</p>
+                  <img
+                    src={`data:image/png;base64,${paymentData.pixEncodedImage}`}
+                    alt="QR Code PIX"
+                    className="w-48 h-48 mx-auto rounded-lg"
+                  />
+                  <p className="text-[10px] text-gray-400 break-all">{paymentData.pixQrCode}</p>
+                </div>
+              )}
+              {paymentData.billingType === 'BOLETO' && paymentData.bankSlipUrl && (
+                <div className="text-center">
+                  <a
+                    href={paymentData.bankSlipUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Abrir Boleto Bancário
+                  </a>
+                </div>
+              )}
+              <a
+                href={paymentData.invoiceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-center text-sm text-blue-600 hover:underline"
+              >
+                Ver fatura completa no Asaas
+              </a>
+            </div>
+          )}
+
+          {error && (
+            <p className="text-red-600 text-sm text-center bg-red-50 p-2 rounded-lg">{error}</p>
+          )}
+
+          {/* Botões de pagamento */}
+          {!paymentData && (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handlePay('PIX')}
+                disabled={loading}
+                className="flex flex-col items-center gap-2 p-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl transition-colors font-medium"
+              >
+                <QrCode className="h-6 w-6" />
+                <span className="text-sm">Pagar via PIX</span>
+              </button>
+              <button
+                onClick={() => handlePay('BOLETO')}
+                disabled={loading}
+                className="flex flex-col items-center gap-2 p-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl transition-colors font-medium"
+              >
+                <FileText className="h-6 w-6" />
+                <span className="text-sm">Pagar via Boleto</span>
+              </button>
+            </div>
+          )}
+
+          {paymentData && (
+            <button
+              onClick={() => setPaymentData(null)}
+              className="w-full text-center text-sm text-gray-500 hover:text-gray-700 py-2"
+            >
+              Gerar outro pagamento
+            </button>
+          )}
+
+          <p className="text-[10px] text-gray-400 text-center">
+            Após a confirmação do pagamento, seu acesso será liberado automaticamente.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 }

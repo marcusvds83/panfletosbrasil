@@ -235,7 +235,7 @@ function NewMarketForm({ onCreated }: { onCreated: () => void }) {
     estado: '',
     endereco: '',
     telefone: '',
-    mensalidade: '599',
+    mensalidade: '399',
   })
 
   const handleChange = (field: string, value: string) => {
@@ -260,7 +260,7 @@ function NewMarketForm({ onCreated }: { onCreated: () => void }) {
         method: 'POST',
         body: JSON.stringify({
           ...form,
-          mensalidade: parseInt(form.mensalidade) || 599,
+          mensalidade: parseInt(form.mensalidade) || 399,
         }),
       })
       toast.success(`Mercado "${nome}" cadastrado com sucesso!`)
@@ -274,7 +274,7 @@ function NewMarketForm({ onCreated }: { onCreated: () => void }) {
         estado: '',
         endereco: '',
         telefone: '',
-        mensalidade: '599',
+        mensalidade: '399',
       })
       onCreated()
     } catch (err) {

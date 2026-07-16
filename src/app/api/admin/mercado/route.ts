@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       telefone: telefone || null,
       emailLogin: email,
       senhaHash: hash,
-      mensalidade: mensalidade || 599,
+      mensalidade: mensalidade || 399,
       status: 'piloto',
       pilotoInicio: agora.toISOString(),
       pilotoFim: pilotoFim.toISOString(),

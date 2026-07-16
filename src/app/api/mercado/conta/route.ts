@@ -13,7 +13,7 @@ export async function GET() {
         id: true, nome: true, cidade: true, estado: true,
         emailLogin: true, status: true, destaque: true,
         pilotoInicio: true, pilotoFim: true, mensalidade: true,
-        criadoEm: true, logoPath: true, endereco: true, telefone: true,
+        criadoEm: true, logoPath: true, endereco: true, telefone: true, segmento: true,
       },
     })
     if (!mercado) return NextResponse.json({ erro: 'Mercado não encontrado' }, { status: 404 })

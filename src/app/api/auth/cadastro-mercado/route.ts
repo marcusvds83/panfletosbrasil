@@ -26,6 +26,7 @@ function hashSenha(s: string) {
  *   cpf: string          — 11 dígitos
  *   endereco?: string
  *   telefone?: string
+ *   segmento?: string   — 'mercados' | 'farmacias' | 'petshops'
  * }
  *
  * O mercado é criado com status='piloto' (60 dias grátis).
@@ -33,11 +34,11 @@ function hashSenha(s: string) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { nome, cnpj, email, senha, cidade, estado, responsavel, cpf, endereco, telefone } = body
+    const { nome, cnpj, email, senha, cidade, estado, responsavel, cpf, endereco, telefone, segmento } = body
 
-    if (!nome || !cnpj || !email || !senha || !cidade || !estado || !responsavel || !cpf) {
+    if (!nome || !cnpj || !email || !senha || !cidade || !estado || !responsavel || !cpf || !segmento) {
       return NextResponse.json(
-        { erro: 'Campos obrigatórios: nome, cnpj, email, senha, cidade, estado, responsavel, cpf' },
+        { erro: 'Campos obrigatórios: nome, cnpj, email, senha, cidade, estado, responsavel, cpf, segmento' },
         { status: 400 },
       )
     }
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       telefone: telefone || null,
       emailLogin: email,
       senhaHash: hashSenha(senha),
-      mensalidade: 599,
+      mensalidade: segmento === 'farmacias' ? 299 : segmento === 'petshops' ? 199 : 399,
       status: 'piloto',
       pilotoInicio: agora.toISOString(),
       pilotoFim: pilotoFim.toISOString(),
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
       destaqueFim: null,
       responsavel,
       cpf: cpfLimpo,
+      segmento,
     } as any)
 
     const data: SessionData = {
