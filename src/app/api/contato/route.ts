@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
 
     // Tenta enviar e-mail (usa defaults do email.ts se env vars nao definidas)
     const SMTP_HOST = process.env.SMTP_HOST || 'mail.3codenexus.com.br'
-    const SMTP_PORT = parseInt(process.env.SMTP_PORT || '465', 10)
+    const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10)
     const SMTP_USER = process.env.SMTP_USER || 'contato@3codenexus.com.br'
     const SMTP_PASS = process.env.SMTP_PASS || 'kermit051326'
     const SMTP_FROM = process.env.SMTP_FROM || 'EncarteBrasil <contato@3codenexus.com.br>'
@@ -87,11 +87,13 @@ export async function POST(req: NextRequest) {
       const transporter = nodemailer.createTransport({
         host: SMTP_HOST,
         port: SMTP_PORT,
-        secure: SMTP_PORT === 465,
+        secure: false, // porta 587 usa STARTTLS
+        requireTLS: true,
         auth: { user: SMTP_USER, pass: SMTP_PASS },
-        connectionTimeout: 10_000,
-        greetingTimeout: 5_000,
-        socketTimeout: 15_000,
+        connectionTimeout: 20_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 25_000,
+        tls: { rejectUnauthorized: false },
       })
       const tipoLabel = tipo === 'mercado' ? '[MERCADO]' : '[CONSUMIDOR]'
       const mercadoInfo = mercadoNome ? ` (${mercadoNome})` : ''
