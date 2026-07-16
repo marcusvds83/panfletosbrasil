@@ -7,6 +7,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.CookieManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -71,9 +72,10 @@ public class MainActivity extends Activity {
 
             webView.setWebChromeClient(new WebChromeClient());
 
-            // Enable cookie persistence
-            // CookieManager.getInstance().setAcceptCookie(true);
-            // CookieManager.getInstance().flush();
+            // Enable cookie persistence (CRITICAL for login/session)
+            CookieManager.getInstance().setAcceptCookie(true);
+            CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
+            CookieManager.getInstance().flush();
 
             webView.loadUrl(APP_URL);
         } catch (Exception e) {
