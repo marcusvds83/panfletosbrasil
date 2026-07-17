@@ -60,8 +60,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ erro: 'Apenas login via Google é suportado neste endpoint' }, { status: 400 })
     }
 
-    const { uid, email, name, picture } = payload
-    console.log(`[google-login] Google OK: uid=${uid} email=${email} name=${name}`)
+    const firebaseUid = payload.sub || payload.uid
+    const { email, name, picture } = payload
+    console.log(`[google-login] Google OK: uid=${firebaseUid} email=${email} name=${name}`)
 
     // 3. Busca usuário existente no Firestore
     let usuario: any = await db.usuario.findUnique({ where: { email } })
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
         nome: name || usuario.nome,
         photoURL: picture || usuario.photoURL,
         provider: 'google',
-        googleUid: uid,
+        googleUid: firebaseUid,
       } as any)
     } else {
       // 4. Cria novo usuário automaticamente
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
         nome: name || null,
         photoURL: picture || null,
         provider: 'google',
-        googleUid: uid,
+        googleUid: firebaseUid,
         ativo: true,
         criadoEm: new Date().toISOString(),
       })
