@@ -92,7 +92,7 @@ export async function enviarEmail(opts: EmailOptions): Promise<{ ok: boolean; er
  * Envia e-mail de boas-vindas para novo mercado cadastrado.
  */
 export async function emailBoasVindasMercado(nome: string, email: string): Promise<boolean> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://encartebrasil.onrender.com'
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://panfletosbrasil.onrender.com'
   const result = await enviarEmail({
     to: email,
     subject: 'Bem-vindo ao Panfletos Brasil!',
@@ -127,7 +127,7 @@ export async function emailBoasVindasMercado(nome: string, email: string): Promi
  * Envia e-mail de boas-vindas para novo consumidor (usuario PF).
  */
 export async function emailBoasVindasConsumidor(nome: string, email: string): Promise<boolean> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://encartebrasil.onrender.com'
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://panfletosbrasil.onrender.com'
   const result = await enviarEmail({
     to: email,
     subject: 'Bem-vindo ao Panfletos Brasil!',

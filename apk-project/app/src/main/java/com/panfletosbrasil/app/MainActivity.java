@@ -1,4 +1,4 @@
-package com.encartebrasil.app;
+package com.panfletosbrasil.app;
 
 import android.app.Activity;
 import android.graphics.Color;
@@ -21,7 +21,7 @@ import android.widget.TextView;
 public class MainActivity extends Activity {
 
     private WebView webView;
-    private static final String APP_URL = "https://encartebrasil.onrender.com";
+    private static final String APP_URL = "https://panfletosbrasil.onrender.com";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

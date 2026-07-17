@@ -4,18 +4,18 @@
 # (Alphimedia / public_html). As API routes continuam no Render.
 #
 # Uso:  bash scripts/build-static.sh
-# Saída: /home/z/my-project/download/encartebrasil-static.zip
+# Saída: /home/z/my-project/download/panfletosbrasil-static.zip
 # ──────────────────────────────────────────────────────────────────────────────
 set -e
 
 PROJECT_DIR="/home/z/my-project"
 DIST_DIR="$PROJECT_DIR/dist-static"
-ZIP_FILE="$PROJECT_DIR/download/encartebrasil-static.zip"
+ZIP_FILE="$PROJECT_DIR/download/panfletosbrasil-static.zip"
 
 # URL do backend Render (API routes)
-RENDER_URL="https://encarte-brasil.onrender.com"
+RENDER_URL="https://panfletosbrasil.onrender.com"
 
-echo "=== EncarteBrasil — Build Estático para Alphimedia ==="
+echo "=== PanfletosBrasil — Build Estático para Alphimedia ==="
 echo ""
 
 # 1) Limpa build anterior
@@ -64,7 +64,7 @@ cp -r "$PROJECT_DIR/out/"* "$DIST_DIR/"
 # 6) Gera .htaccess para SPA routing (Apache)
 echo "[3/4] Gerando .htaccess..."
 cat > "$DIST_DIR/.htaccess" << 'HTACEOF'
-# EncarteBrasil — SPA Routing + Cache
+# PanfletosBrasil — SPA Routing + Cache
 RewriteEngine On
 
 # Redireciona www para non-www
@@ -116,7 +116,7 @@ rm -rf "$PROJECT_DIR/out"
 echo ""
 echo "=== PRONTO ==="
 echo "Arquivo: $ZIP_FILE"
-echo "Destino: descompactar no public_html de encartesbrasil.3codenexus.com.br"
+echo "Destino: descompactar no public_html de panfletosbrasil.3codenexus.com.br"
 echo "Backend API: $RENDER_URL"
 echo ""
 echo "IMPORTANTE: No Render, configure a variável:"

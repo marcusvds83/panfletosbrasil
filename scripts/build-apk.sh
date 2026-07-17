@@ -12,7 +12,7 @@ JAVAC="$JAVA_HOME/bin/javac"
 D8="$BUILD_TOOLS/d8"
 ZIPALIGN="$BUILD_TOOLS/zipalign"
 APKSIGNER="$BUILD_TOOLS/apksigner"
-OUTPUT="/home/z/my-project/download/EncarteBrasil.apk"
+OUTPUT="/home/z/my-project/download/PanfletosBrasil.apk"
 
 echo "=== Step 1: Compile resources ==="
 rm -rf "$BUILD/gen" "$BUILD/resources.zip"
@@ -32,8 +32,8 @@ mkdir -p $BUILD/classes
 $JAVAC --release 11 \
   -classpath $PLATFORM_JAR \
   -d $BUILD/classes \
-  $BUILD/gen/com/encartebrasil/app/R.java \
-  $PROJECT/app/src/main/java/com/encartebrasil/app/MainActivity.java
+  $BUILD/gen/com/panfletosbrasil/app/R.java \
+  $PROJECT/app/src/main/java/com/panfletosbrasil/app/MainActivity.java
 
 echo "=== Step 3: Convert to DEX ==="
 mkdir -p $BUILD/dex
@@ -53,8 +53,8 @@ $ZIPALIGN -f 4 $BUILD/apk.unsigned.apk $BUILD/apk.aligned.apk
 echo "=== Step 6: Sign APK ==="
 mkdir -p /home/z/my-project/download
 $APKSIGNER sign \
-  --ks $BUILD/encartebrasil.keystore \
-  --ks-key-alias encartebrasil \
+  --ks $BUILD/panfletosbrasil.keystore \
+  --ks-key-alias panfletosbrasil \
   --ks-pass pass:encarte123 \
   --key-pass pass:encarte123 \
   --out "$OUTPUT" \
