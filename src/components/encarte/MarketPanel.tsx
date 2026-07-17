@@ -233,13 +233,13 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
   const [googleLoading, setGoogleLoading] = useState(false)
 
   // ── Detecta se está rodando dentro de um WebView (Android APK) ──
-  // Nota: o UA do WebView tem "; wv" removido no Android para evitar bloqueio do Google,
-  // então detectamos pelo identificador customizado "PanfletosBrasilApp"
   const isWebView = typeof navigator !== 'undefined' && /PanfletosBrasilApp/i.test(navigator.userAgent)
 
-  // ── Google Redirect Result (para login via redirect no WebView) ──
+  // ── Google Redirect Result ──
+  // Roda em TODOS os contextos:
+  // - No WebView: resulta do signInWithRedirect (interceptado pelo Android → Chrome → volta)
+  // - No Chrome: após o Android abrir o OAuth externo, o Chrome recebe o redirect
   useEffect(() => {
-    if (!isWebView) return // Só precisa no WebView
     const checkRedirectResult = async () => {
       try {
         const { getRedirectResult } = await import('firebase/auth')
@@ -249,14 +249,24 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
 
         const result = await getRedirectResult(auth)
         if (result?.user) {
-          setGoogleLoading(true)
           const idToken = await result.user.getIdToken()
-          await api('/api/auth/google-login', {
-            method: 'POST',
-            body: JSON.stringify({ idToken }),
-          })
-          toast.success('Login com Google realizado!')
-          onLogin()
+
+          if (isWebView) {
+            // WebView direto: login normal (raro — fallback)
+            setGoogleLoading(true)
+            await api('/api/auth/google-login', {
+              method: 'POST',
+              body: JSON.stringify({ idToken }),
+            })
+            toast.success('Login com Google realizado!')
+            onLogin()
+          } else {
+            // Chrome (aberto pelo app): passa o token de volta via custom scheme
+            // O Android vai capturar panfletosbrasil://auth-callback?idToken=XXX
+            // e carregar /auth-complete?token=XXX no WebView
+            window.location.href = `panfletosbrasil://auth-callback?idToken=${encodeURIComponent(idToken)}`
+            return // Não faz mais nada — o fluxo continua no app
+          }
         }
       } catch (err) {
         console.error('[Google Redirect] erro:', err)
@@ -284,10 +294,10 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
       const provider = new GoogleAuthProvider()
 
       if (isWebView) {
-        // WebView: usa redirect (o UA é limpo no Android para evitar disallowed_useragent)
+        // WebView: signInWithRedirect → Android intercepta a URL do Google
+        // e abre no Chrome. Após auth, volta via custom scheme.
         const { signInWithRedirect } = await import('firebase/auth')
         await signInWithRedirect(auth, provider)
-        // O fluxo continua no useEffect getRedirectResult acima
       } else {
         // Navegador normal: usa popup
         const { signInWithPopup } = await import('firebase/auth')
