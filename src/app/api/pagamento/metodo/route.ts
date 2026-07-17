@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { db } from '@/lib/db'
 
-// Webhook do documento — CRM Panfletos Brasil (3codenexus)
-const ODOO_CRM_URL = 'https://www.panfletosbrasil.3codenexus.com.br/web/hook/b402d845-2a4f-4ad3-a6d7-de646f34285c'
-// Webhook odoo.com — fallback
-const ODOO_FALLBACK_URL = 'https://panfletosbrasil.odoo.com/web/hook/a1968b1c-2885-46f2-b77b-88cd76337459'
+const ODOO_WEBHOOK_URL = 'https://www.panfletosbrasil.3codenexus.com.br/web/hook/4c25f535-5267-437f-92a8-fdf0e164fff2'
 
 const METODOS_VALIDOS = ['pix', 'cartao_mensal', 'cartao_recorrente', 'boleto'] as const
 type MetodoPagamento = (typeof METODOS_VALIDOS)[number]
@@ -26,8 +23,8 @@ function normalizarSegmento(seg: string): string {
   return seg || ''
 }
 
-/** Envia payload para um webhook Odoo e loga o resultado completo */
-async function enviarWebhook(url: string, payload: object, label: string): Promise<void> {
+/** Envia payload para o webhook Odoo e loga resultado */
+async function enviarWebhook(url: string, payload: object): Promise<void> {
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -35,9 +32,9 @@ async function enviarWebhook(url: string, payload: object, label: string): Promi
       body: JSON.stringify(payload),
     })
     const body = await res.text()
-    console.log(`[webhook ${label}] status=${res.status} body=${body}`)
+    console.log(`[webhook Odoo] status=${res.status} body=${body}`)
   } catch (err: any) {
-    console.error(`[webhook ${label}] FALHA: ${err?.message || err}`)
+    console.error(`[webhook Odoo] FALHA: ${err?.message || err}`)
   }
 }
 
@@ -116,11 +113,8 @@ export async function POST(req: NextRequest) {
 
     console.log(`[pagamento/metodo] webhook payload: ${JSON.stringify(odooPayload)}`)
 
-    // Dispara webhook CRM (3codenexus) e fallback (odoo.com) em paralelo
-    await Promise.all([
-      enviarWebhook(ODOO_CRM_URL, odooPayload, 'CRM-3codenexus'),
-      enviarWebhook(ODOO_FALLBACK_URL, odooPayload, 'FALLBACK-odoo'),
-    ])
+    // Dispara webhook para Odoo CRM
+    await enviarWebhook(ODOO_WEBHOOK_URL, odooPayload)
 
     return NextResponse.json({
       ok: true,
