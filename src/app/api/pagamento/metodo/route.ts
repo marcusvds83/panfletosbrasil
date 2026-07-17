@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { db } from '@/lib/db'
 
-const ODOO_WEBHOOK_URL = 'https://panfletosbrasil.odoo.com/web/hook/a1968b1c-2885-46f2-b77b-88cd76337459'
+// Webhook do documento — CRM Panfletos Brasil (3codenexus)
+const ODOO_CRM_URL = 'https://www.panfletosbrasil.3codenexus.com.br/web/hook/b402d845-2a4f-4ad3-a6d7-de646f34285c'
+// Webhook odoo.com — fallback
+const ODOO_FALLBACK_URL = 'https://panfletosbrasil.odoo.com/web/hook/a1968b1c-2885-46f2-b77b-88cd76337459'
 
 const METODOS_VALIDOS = ['pix', 'cartao_mensal', 'cartao_recorrente', 'boleto'] as const
 type MetodoPagamento = (typeof METODOS_VALIDOS)[number]
@@ -21,6 +24,21 @@ function normalizarSegmento(seg: string): string {
   if (s === 'petshops' || s === 'petshop' || s === 'pet shops') return 'PetShops'
   if (s === 'farmácias' || s === 'farmacias' || s === 'farmácia' || s === 'farmacia') return 'Farmácias'
   return seg || ''
+}
+
+/** Envia payload para um webhook Odoo e loga o resultado completo */
+async function enviarWebhook(url: string, payload: object, label: string): Promise<void> {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const body = await res.text()
+    console.log(`[webhook ${label}] status=${res.status} body=${body}`)
+  } catch (err: any) {
+    console.error(`[webhook ${label}] FALHA: ${err?.message || err}`)
+  }
 }
 
 /**
@@ -60,6 +78,7 @@ export async function POST(req: NextRequest) {
     // Monta descrição com a escolha de pagamento (campo description do Odoo)
     const metodoLabel = METODO_LABEL[metodo] || metodo
     const recorrente = metodo === 'cartao_recorrente'
+    const segmentoNorm = normalizarSegmento(empresa.segmento)
     const descricao = [
       `ESCOLHA DE PAGAMENTO`,
       `Forma escolhida: ${metodoLabel}`,
@@ -71,7 +90,7 @@ export async function POST(req: NextRequest) {
       `Empresa: ${empresa.nome}`,
       `CNPJ: ${empresa.cnpj}`,
       `Cidade/UF: ${empresa.cidade}/${empresa.estado}`,
-      `Segmento: ${normalizarSegmento(empresa.segmento)}`,
+      `Segmento: ${segmentoNorm}`,
       `E-mail: ${empresa.emailLogin}`,
       `Telefone: ${empresa.telefone || 'Não informado'}`,
       '',
@@ -80,33 +99,28 @@ export async function POST(req: NextRequest) {
       `CPF: ${empresa.cpf || 'Não informado'}`,
     ].join('\n')
 
-    // Envia webhook para Odoo — nova oportunidade com dados completos
+    // Payload nos campos que a ação do servidor Odoo lê (conforme documento)
     const odooPayload = {
       nome_empresa: empresa.nome,
       cnpj: empresa.cnpj,
       email_empresa: empresa.emailLogin,
       telefone_empresa: empresa.telefone || '',
-      segmento: normalizarSegmento(empresa.segmento),
+      segmento: segmentoNorm,
       nome_contato: empresa.responsavel || '',
       cpf: empresa.cpf || '',
       telefone_contato: empresa.telefone || '',
       email_contato: empresa.emailLogin,
-      titulo: `Pagamento — ${empresa.nome} — ${metodoLabel}`,
-      descricao,
+      nome: `Pagamento — ${empresa.nome} — ${metodoLabel}`,
+      description: descricao,
     }
 
-    console.log(`[pagamento/metodo] enviando webhook Odoo: ${JSON.stringify(odooPayload)}`)
+    console.log(`[pagamento/metodo] webhook payload: ${JSON.stringify(odooPayload)}`)
 
-    // Fire-and-forget webhook para Odoo
-    fetch(ODOO_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(odooPayload),
-    }).then((r) => {
-      console.log(`[pagamento/metodo] webhook Odoo status: ${r.status}`)
-    }).catch((err) => {
-      console.error('[pagamento/metodo] erro ao enviar webhook Odoo:', err)
-    })
+    // Dispara webhook CRM (3codenexus) e fallback (odoo.com) em paralelo
+    await Promise.all([
+      enviarWebhook(ODOO_CRM_URL, odooPayload, 'CRM-3codenexus'),
+      enviarWebhook(ODOO_FALLBACK_URL, odooPayload, 'FALLBACK-odoo'),
+    ])
 
     return NextResponse.json({
       ok: true,
