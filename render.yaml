@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: panfletosbrasil
+    name: encartebrasil
     runtime: node
     plan: free
     region: singapore
