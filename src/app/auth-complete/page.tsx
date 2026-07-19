@@ -91,8 +91,8 @@ export default function AuthCompletePage() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white">
         <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-red-600 border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-gray-500 text-sm">Finalizando login com Google...</p>
+          <div className="animate-spin h-10 w-10 border-4 border-red-600 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-gray-700 text-base font-medium">Direcionando à tela inicial</p>
         </div>
       </div>
     )

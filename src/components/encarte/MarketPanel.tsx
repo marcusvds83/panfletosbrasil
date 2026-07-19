@@ -486,6 +486,11 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                     <div className="flex-1 h-px bg-gray-200" />
                   </div>
 
+                  {/* Aviso conexão Google */}
+                  <p className="text-red-600 text-[13px] font-semibold text-center leading-snug">
+                    Ao se conectar com sua Conta Google, aguarde. Após retornar ao app você será redirecionado à tela Inicial.
+                  </p>
+
                   {/* Botão Google */}
                   <button
                     type="button"
@@ -525,6 +530,11 @@ function LoginForm({ onLogin }: { onLogin: () => void }) {
                 <>
                   <p className="text-xs text-gray-500 text-center mb-2">
                     Crie sua conta de consumidor
+                  </p>
+
+                  {/* Aviso conexão Google (cadastro) */}
+                  <p className="text-red-600 text-[13px] font-semibold text-center leading-snug">
+                    Ao se conectar com sua Conta Google, aguarde. Após retornar ao app você será redirecionado à tela Inicial.
                   </p>
 
                   {/* Botão Google (também no cadastro) */}
