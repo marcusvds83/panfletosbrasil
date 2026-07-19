@@ -48,6 +48,7 @@ export default function AuthCompletePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken: token }),
+        credentials: 'include', // CRÍTICO: garante que o cookie de sessão seja salvo no WebView
       })
       const data = await res.json()
       if (res.ok && data.ok) {
@@ -58,17 +59,21 @@ export default function AuthCompletePage() {
 
     // Tenta google-login-webview primeiro (aceita tokens Google diretos)
     doLogin('/api/auth/google-login-webview')
-      .then((result) => {
+      .then(async (result) => {
         if (result.success) {
-          window.location.href = '/'
+          // Aguarda 500ms para garantir que o cookie foi persistido
+          await new Promise(r => setTimeout(r, 500))
+          // Force reload completo para o AppShell re-buscar /api/auth/me com o cookie
+          window.location.replace('/')
           return
         }
         // Fallback: tenta com o endpoint Firebase
         return doLogin('/api/auth/google-login')
       })
-      .then((result) => {
+      .then(async (result) => {
         if (result && result.success) {
-          window.location.href = '/'
+          await new Promise(r => setTimeout(r, 500))
+          window.location.replace('/')
         } else if (result && result.data && result.data.erro) {
           setErro(result.data.erro)
         } else {
