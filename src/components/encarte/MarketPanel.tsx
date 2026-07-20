@@ -1241,23 +1241,22 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
   const isAtivo = conta.status === 'ativo'
 
   // ── Tela de bloqueio: APENAS quando piloto/teste grátis expira SEM carência,
-  // pagamento vencido SEM carência, ou assinatura cancelada ──
-  // IMPORTANTE: isAguardandoPagamento e isAguardando72h NÃO bloqueiam —
-  // a empresa pode continuar usando e fechar o popup
-  if (isPilotoExpirado || isAssinaturaCancelada || isPagamentoVencido) {
+  // pagamento vencido SEM carência, assinatura cancelada, ou conta inativa ──
+  const isInativo = conta.status === 'inativo' || conta.statusEfetivo === 'inativo'
+
+  if (isPilotoExpirado || isAssinaturaCancelada || isPagamentoVencido || isInativo) {
     return <PaymentBlockScreen conta={conta} />
   }
+
+  // ── Empresa em piloto ativo (mais de 3 dias restantes) — SEM popup de pagamento ──
+  const isPilotoComDiasRestantes = (conta.status === 'piloto' || conta.status === 'teste_gratis')
+    && pilotoDaysLeft !== null && pilotoDaysLeft > 3
 
   return (
     <div className="space-y-6">
       {/* ── Popup de aviso fechável ── */}
-      {/* Aparece quando:
-        - 3 dias antes do vencimento (D-3)
-        - Durante carência 72h (escolheu pagamento, aguarda confirmação)
-        - Admin marcou como pendente (ativo_aguardando_pagamento)
-        - Empresa pode SEMPRE fechar e continuar usando
-      */}
-      {(conta.dentroJanelaAviso || isAguardandoPagamento || isAguardando72h) && (
+      {/* NÃO aparece para empresa em piloto com mais de 3 dias restantes */}
+      {!isPilotoComDiasRestantes && (conta.dentroJanelaAviso || isAguardandoPagamento || isAguardando72h) && (
         <PreVencimentoPopup conta={conta} />
       )}
 
@@ -1916,8 +1915,9 @@ function Dashboard({ conta, onLogout }: { conta: ContaData; onLogout: () => void
             </CardContent>
           </Card>
 
-          {/* ── Seção de Pagamento (visível após piloto vencido OU empresa ativa) ── */}
-          {(isPilotoExpirado || isAtivo || conta.dentroJanelaAviso || conta.dentroCarencia72h) && (
+          {/* ── Seção de Pagamento (visível após piloto vencido OU empresa ativa OU janela D-3 OU pendente) ── */}
+          {/* NÃO aparece para empresa em piloto com mais de 3 dias restantes */}
+          {(!isPilotoComDiasRestantes && (isPilotoExpirado || isAtivo || conta.dentroJanelaAviso || conta.dentroCarencia72h || isAguardandoPagamento)) && (
             <Card className="border-orange-200">
               <CardHeader className="pb-3 pt-4 px-4">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -2610,6 +2610,87 @@ function MetodoPagamentoSelector({
 
 // ── Popup D-3: Aviso fechável 3 dias antes do vencimento ──────────────────
 
+// Seletor de pagamento inline para o popup de pendente
+function PagamentoPendenteSelector({ conta, onDismiss }: { conta: ContaData; onDismiss: () => void }) {
+  const [loading, setLoading] = useState(false)
+  const [sucesso, setSucesso] = useState(false)
+
+  const handleSelect = async (metodo: MetodoPagamento) => {
+    setLoading(true)
+    try {
+      await api('/api/pagamento/metodo', {
+        method: 'POST',
+        body: JSON.stringify({ metodo }),
+      })
+      setSucesso(true)
+      toast.success('Forma de pagamento atualizada! Aguarde a confirmação.')
+      setTimeout(() => onDismiss(), 1500)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (sucesso) {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+        <CheckCircle className="h-6 w-6 text-green-600 mx-auto mb-1" />
+        <p className="text-xs font-semibold text-green-800">Solicitação enviada!</p>
+        <p className="text-[11px] text-green-700">Aguarde a confirmação do administrador.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {conta.formaPagamento && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 mb-2">
+          <p className="text-[11px] text-blue-700">
+            Forma atual: <strong>{METODO_LABELS[conta.formaPagamento as MetodoPagamento] || conta.formaPagamento}</strong>
+          </p>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={() => handleSelect('pix')}
+          disabled={loading}
+          className="flex items-center gap-1.5 p-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium disabled:opacity-50"
+        >
+          <QrCode className="h-4 w-4" /> Pix
+        </button>
+        <button
+          onClick={() => handleSelect('boleto')}
+          disabled={loading}
+          className="flex items-center gap-1.5 p-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium disabled:opacity-50"
+        >
+          <Banknote className="h-4 w-4" /> Boleto
+        </button>
+        <button
+          onClick={() => handleSelect('cartao_mensal')}
+          disabled={loading}
+          className="flex items-center gap-1.5 p-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium disabled:opacity-50"
+        >
+          <CreditCard className="h-4 w-4" /> Cartão Mensal
+        </button>
+        <button
+          onClick={() => handleSelect('cartao_recorrente')}
+          disabled={loading}
+          className="flex items-center gap-1.5 p-2 rounded-lg bg-purple-700 hover:bg-purple-800 text-white text-xs font-medium disabled:opacity-50"
+        >
+          <CreditCard className="h-4 w-4" /> Cartão Recorrente
+        </button>
+      </div>
+      {loading && (
+        <p className="text-[11px] text-gray-500 text-center">
+          <Loader2 className="h-3 w-3 inline animate-spin mr-1" />
+          Enviando...
+        </p>
+      )}
+    </div>
+  )
+}
+
 function PreVencimentoPopup({ conta }: { conta: ContaData }) {
   const [dismissed, setDismissed] = useState(false)
   const storageKey = `popup_venc_${conta.id}`
@@ -2682,23 +2763,26 @@ function PreVencimentoPopup({ conta }: { conta: ContaData }) {
           ) : isPendente ? (
             <>
               <h3 className="text-lg font-bold text-gray-900 mb-2">
-                Pagamento Pendente — Confirmação Necessária
+                Pagamento Pendente — Escolha sua forma de pagamento
               </h3>
               <p className="text-sm text-gray-600 mb-4">
-                Sua forma de pagamento foi recebida e está sendo analisada.
-                Aguarde a confirmação do administrador.
+                Sua conta está aguardando confirmação de pagamento.
+                Escolha ou troque sua forma de pagamento abaixo para regularizar.
               </p>
-              {conta.formaPagamento && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-blue-800 font-medium">
-                    ✓ Forma escolhida: {conta.formaPagamento === 'pix' ? 'Pix' : conta.formaPagamento === 'cartao_mensal' ? 'Cartão (Mensal)' : conta.formaPagamento === 'cartao_recorrente' ? 'Cartão (Recorrente)' : 'Boleto'}
-                  </p>
-                  <p className="text-xs text-blue-700 mt-1">
-                    Continue usando o sistema normalmente. Você será notificado quando o pagamento for confirmado.
-                  </p>
-                </div>
-              )}
-              <p className="text-[11px] text-gray-500 mb-4">
+
+              {/* Mensalidade */}
+              <div className="bg-gray-50 rounded-lg p-3 text-center mb-3">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Mensalidade</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">
+                  R$ {conta.mensalidade || 399},00
+                </p>
+                <p className="text-[10px] text-gray-400">/mês</p>
+              </div>
+
+              {/* Seletor de pagamento inline */}
+              <PagamentoPendenteSelector conta={conta} onDismiss={handleDismiss} />
+
+              <p className="text-[11px] text-gray-500 mt-3 text-center">
                 Em caso de dúvidas, contate: notifications@panfletosbrasil.odoo.com
               </p>
             </>
@@ -2751,19 +2835,22 @@ function PaymentBlockScreen({ conta }: { conta: ContaData }) {
   const isAguardando72h = conta.statusEfetivo === 'aguardando_confirmacao_72h'
   const isPagamentoVencido = conta.statusEfetivo === 'pagamento_vencido'
   const isTesteGratisExpirado = conta.statusEfetivo === 'teste_gratis_expirado'
+  const isInativo = conta.status === 'inativo' || conta.statusEfetivo === 'inativo'
   const emailSuporte = (conta as any).emailSuporte || 'notifications@panfletosbrasil.odoo.com'
 
-  const titulo = isAguardando72h
-    ? 'Aguardando Confirmação de Pagamento'
-    : isCancelado
-      ? 'Assinatura Encerrada'
-      : isAguardando
-        ? 'Ative Sua Assinatura'
-        : isPagamentoVencido
-          ? 'Pagamento Vencido'
-          : isTesteGratisExpirado
-            ? 'Teste Grátis Encerrado'
-            : 'Período de Piloto Encerrado'
+  const titulo = isInativo
+    ? 'Conta Desativada'
+    : isAguardando72h
+      ? 'Aguardando Confirmação de Pagamento'
+      : isCancelado
+        ? 'Assinatura Encerrada'
+        : isAguardando
+          ? 'Ative Sua Assinatura'
+          : isPagamentoVencido
+            ? 'Pagamento Vencido'
+            : isTesteGratisExpirado
+              ? 'Teste Grátis Encerrado'
+              : 'Período de Piloto Encerrado'
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-4">
@@ -2812,6 +2899,33 @@ function PaymentBlockScreen({ conta }: { conta: ContaData }) {
                 </p>
                 <p className="text-xs text-gray-600 text-center mt-2">
                   Para reativar o app via pagamento, entre em contato:<br />
+                  <a href={`mailto:${emailSuporte}`} className="text-red-600 font-semibold hover:underline">
+                    {emailSuporte}
+                  </a>
+                </p>
+              </div>
+            </div>
+          ) : isInativo ? (
+            <div className="text-center space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm text-red-800 font-medium">
+                  Sua conta foi desativada pelo administrador.
+                </p>
+                <p className="text-xs text-red-600 mt-1">
+                  Isso pode ocorrer por falta de pagamento ou problema técnico.
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-4 text-center">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Mensalidade — {segmentoLabel}</p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">
+                  R$ {conta.mensalidade || 399},00
+                </p>
+                <p className="text-xs text-gray-400 mt-1">/mês</p>
+              </div>
+              <MetodoPagamentoSelector formaPagamentoAtual={conta.formaPagamento} />
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs text-gray-600 text-center">
+                  Para reativar sua conta, escolha uma forma de pagamento acima ou contate:<br />
                   <a href={`mailto:${emailSuporte}`} className="text-red-600 font-semibold hover:underline">
                     {emailSuporte}
                   </a>
