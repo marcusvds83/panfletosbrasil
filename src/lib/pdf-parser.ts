@@ -520,21 +520,29 @@ async function extractWithPdfjs(pdfBuffer: Buffer | Uint8Array): Promise<{ text:
 
 /**
  * Extrai texto de um buffer de PDF e retorna os produtos.
- * Tenta PDFParse primeiro (melhor para colunas); se falhar ou retornar pouco texto,
- * usa pdfjs-dist como fallback. Escolhe o método com MAIS texto.
+ *
+ * Arquitetura (3 métodos com fallback automático):
+ *
+ * 1. PDFParse (pdf-parse v2) — melhor para PDFs digitais com colunas
+ * 2. pdfjs-dist — mais robusto no Render, reconstrói linhas por coordenadas
+ * 3. Tesseract OCR — fallback para PDFs escaneados/imagem (quando 1+2 falham)
+ *
+ * Escolhe o método com MAIS texto extraído.
+ * Se nenhum método extrair texto suficiente, tenta OCR.
  */
 export async function extrairProdutosDoPDF(pdfBuffer: Buffer | Uint8Array): Promise<{
   produtos: ProdutoExtraido[]
   textoBruto: string
   totalPaginas: number
+  metodoUsado: string
 }> {
   let textoBruto = ''
   let totalPaginas = 0
+  let metodoUsado = 'nenhum'
 
-  // Tenta ambos os métodos e fica com o que extrair mais texto
   const resultados: Array<{ texto: string; paginas: number; metodo: string }> = []
 
-  // Método 1: PDFParse (pdf-parse v2) — melhor reconstrução de linhas/colunas
+  // ── Método 1: PDFParse (pdf-parse v2) ──────────────────────────────
   try {
     const { PDFParse } = await import('pdf-parse')
     const uint8 = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer
@@ -545,13 +553,13 @@ export async function extrairProdutosDoPDF(pdfBuffer: Buffer | Uint8Array): Prom
       resultados.push({ texto: text, paginas: result.pages?.length || 0, metodo: 'PDFParse' })
       console.log(`[pdf-parser] PDFParse OK: ${text.length} chars, ${result.pages?.length || 0} páginas`)
     } else {
-      console.log('[pdf-parser] PDFParse retornou texto vazio, tentando fallback...')
+      console.log('[pdf-parser] PDFParse retornou texto vazio')
     }
   } catch (e1: any) {
     console.warn('[pdf-parser] PDFParse falhou:', e1?.message || e1)
   }
 
-  // Método 2: pdfjs-dist direto (sem worker, mais robusto no Render)
+  // ── Método 2: pdfjs-dist (sem worker, compatível Render) ───────────
   try {
     const { text, pages } = await extractWithPdfjs(pdfBuffer)
     if (text.length > 0) {
@@ -567,11 +575,103 @@ export async function extrairProdutosDoPDF(pdfBuffer: Buffer | Uint8Array): Prom
     resultados.sort((a, b) => b.texto.length - a.texto.length)
     textoBruto = resultados[0].texto
     totalPaginas = resultados[0].paginas
-    console.log(`[pdf-parser] Método escolhido: ${resultados[0].metodo} (${textoBruto.length} chars)`)
+    metodoUsado = resultados[0].metodo
+    console.log(`[pdf-parser] Método escolhido: ${metodoUsado} (${textoBruto.length} chars)`)
+  }
+
+  // ── Método 3: Tesseract OCR (fallback para PDFs escaneados) ────────
+  // Só tenta OCR se:
+  // - Nenhum texto foi extraído (textoBruto vazio), OU
+  // - Texto extraído é muito pouco (< 50 chars) e nenhum produto foi encontrado
+  const produtosDaTentativa = parseProdutosDoTexto(textoBruto)
+  const precisaOCR = textoBruto.length < 50 || (textoBruto.length < 200 && produtosDaTentativa.length === 0)
+
+  if (precisaOCR) {
+    console.log(`[pdf-parser] Texto insuficiente (${textoBruto.length} chars, ${produtosDaTentativa.length} produtos). Tentando OCR...`)
+
+    try {
+      const { text: ocrText, pages: ocrPages } = await extractWithOCR(pdfBuffer)
+      if (ocrText.length > textoBruto.length) {
+        textoBruto = ocrText
+        totalPaginas = ocrPages
+        metodoUsado = 'Tesseract-OCR'
+        console.log(`[pdf-parser] OCR OK: ${ocrText.length} chars, ${ocrPages} páginas`)
+      } else {
+        console.log(`[pdf-parser] OCR retornou menos texto (${ocrText.length} chars), mantendo método anterior`)
+      }
+    } catch (e3: any) {
+      console.warn('[pdf-parser] OCR falhou:', e3?.message || e3)
+    }
   }
 
   const produtos = parseProdutosDoTexto(textoBruto)
-  console.log(`[pdf-parser] ${produtos.length} produto(s) extraído(s) de ${textoBruto.length} chars`)
+  console.log(`[pdf-parser] ${produtos.length} produto(s) extraído(s) de ${textoBruto.length} chars (método: ${metodoUsado})`)
 
-  return { produtos, textoBruto, totalPaginas }
+  return { produtos, textoBruto, totalPaginas, metodoUsado }
+}
+
+/**
+ * Extrai texto via Tesseract OCR.
+ *
+ * Converte cada página do PDF para imagem (usando pdfjs-dist render)
+ * e roda OCR em cada imagem com tesseract.js (português).
+ *
+ * Mais lento que extração direta (~5-15s por página), mas funciona
+ * para PDFs escaneados/imagem onde pdf-parse e pdfjs-dist não extraem texto.
+ */
+async function extractWithOCR(pdfBuffer: Buffer | Uint8Array): Promise<{ text: string; pages: number }> {
+  // Importa dinamicamente para não pesar o build se não for usado
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js').then((m: any) => m.default || m)
+  const { createWorker } = await import('tesseract.js')
+
+  const uint8 = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer
+  const doc = await pdfjsLib.getDocument({
+    data: uint8,
+    useWorkerFetch: false,
+    isEvalSupported: false,
+    useSystemFonts: true,
+  }).promise
+
+  // Cria worker do Tesseract com português
+  const worker = await createWorker('por', 1, {
+    logger: (m: any) => {
+      if (m.status === 'recognizing text') {
+        console.log(`[pdf-parser] OCR progress: ${Math.round(m.progress * 100)}%`)
+      }
+    },
+  })
+
+  const totalPages = doc.numPages
+  const allText: string[] = []
+
+  for (let i = 1; i <= totalPages; i++) {
+    console.log(`[pdf-parser] OCR: processando página ${i}/${totalPages}...`)
+    const page = await doc.getPage(i)
+    const viewport = page.getViewport({ scale: 2.0 }) // escala maior = melhor OCR
+
+    // Cria canvas para renderizar a página
+    const { createCanvas } = await import('canvas')
+    const canvas = createCanvas(viewport.width, viewport.height)
+    const context = canvas.getContext('2d')
+
+    // Renderiza a página no canvas
+    await page.render({
+      canvasContext: context,
+      viewport,
+    } as any).promise
+
+    // Converte canvas para buffer PNG
+    const imageBuffer = canvas.toBuffer('image/png')
+
+    // Roda OCR na imagem
+    const { data: { text } } = await worker.recognize(imageBuffer)
+    allText.push(text)
+
+    console.log(`[pdf-parser] OCR página ${i}: ${text.length} chars extraídos`)
+  }
+
+  await worker.terminate()
+  await doc.destroy()
+
+  return { text: allText.join('\n\n--- PÁGINA ---\n\n'), pages: totalPages }
 }

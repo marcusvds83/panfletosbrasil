@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
     let produtosExtraidos: Array<{ nome: string; marca: string | null; preco: string; unidade: string | null; id?: string }> = []
     let logExtracao = 'PDF recebido. '
     try {
-      const { produtos, textoBruto, totalPaginas } = await extrairProdutosDoPDF(buffer)
-      console.log(`[encarte upload] parser: ${produtos.length} produtos, texto=${textoBruto.length}chars, paginas=${totalPaginas}`)
+      const { produtos, textoBruto, totalPaginas, metodoUsado } = await extrairProdutosDoPDF(buffer)
+      console.log(`[encarte upload] parser: ${produtos.length} produtos, texto=${textoBruto.length}chars, paginas=${totalPaginas}, metodo=${metodoUsado}`)
 
       // ── Salva os produtos automaticamente no banco ───────────────────
       let salvos = 0
@@ -83,13 +83,13 @@ export async function POST(req: NextRequest) {
         // Atualiza status do encarte para concluído
         await db.encarte.update(encarte.id, {
           statusExtracao: 'concluido',
-          extracaoLog: `Extração automática concluída. ${salvos} produto(s) salvo(s).`,
+          extracaoLog: `Extração automática concluída via ${metodoUsado}. ${salvos} produto(s) salvo(s).`,
         })
-        logExtracao += `${salvos} produto(s) extraído(s) e salvo(s) automaticamente.`
+        logExtracao += `${salvos} produto(s) extraído(s) via ${metodoUsado} e salvo(s) automaticamente.`
       } else if (textoBruto.length === 0) {
-        logExtracao += `Nenhum texto foi extraído do PDF — provavelmente os produtos são imagens (Canva/Designer). O PDF precisa ter texto selecionável.`
+        logExtracao += `Nenhum texto foi extraído do PDF (tentado: PDFParse, pdfjs-dist e OCR). O PDF pode estar corrompido ou protegido.`
       } else {
-        logExtracao += `Texto extraído (${textoBruto.length} caracteres) mas nenhum produto com preço foi encontrado. Verifique se os preços estão no formato R$ XX,XX.`
+        logExtracao += `Texto extraído via ${metodoUsado} (${textoBruto.length} caracteres) mas nenhum produto com preço foi encontrado. Verifique se os preços estão no formato R$ XX,XX ou XX,XX.`
       }
     } catch (e: any) {
       console.error('[encarte upload] erro parser:', e)
