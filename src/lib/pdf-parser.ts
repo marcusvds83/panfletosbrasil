@@ -827,51 +827,305 @@ function extrairProdutosVisuais(items: TextItem[]): ProdutoExtraido[] {
   })
 }
 
+// ── Parser Híbrido (regiões baseadas em nomes) ────────────────────────────
+// Em vez de buscar nome a partir do preço, faz o inverso:
+// 1. Identifica nomes de produtos (textos que não são preços, contato, etc.)
+// 2. Cria uma REGIÃO (bounding box) ao redor de cada nome
+// 3. Para cada região, busca o preço mais próximo dentro dela
+// 4. Busca descrição/unidade dentro da região
+
+interface RegiaoProduto {
+  nome: string
+  x: number
+  y: number
+  w: number
+  h: number
+  page: number
+}
+
+/**
+ * Identifica nomes de produtos: textos que não são preços, contato, ruído.
+ */
+function identificarNomesDeProdutos(items: TextItem[]): TextItem[] {
+  return items.filter(item => {
+    if (isPriceItem(item).isPrice) return false
+    if (isNoise(item.str)) return false
+    if (item.str.length < 3) return false
+
+    // Ignora telefone, instagram, site
+    if (/^\(?\d{2}\)?\s*\d{4,5}-?\d{4}$/.test(item.str)) return false
+    if (/^@[\w_.]+$/.test(item.str)) return false
+    if (/^www\./i.test(item.str)) return false
+
+    // Ignora unidades isoladas
+    if (/^(un|kg|g|ml|l|cx|pct|dz)$/i.test(item.str)) return false
+
+    // Ignora datas
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(item.str)) return false
+
+    return true
+  })
+}
+
+/**
+ * Cria regiões (bounding boxes) ao redor de cada nome de produto.
+ * A região se estende para baixo (onde normalmente está o preço).
+ */
+function criarRegioesPorProdutos(nomes: TextItem[]): RegiaoProduto[] {
+  return nomes.map(nome => {
+    // Região: 80px à esquerda, 80px à direita, 300px para baixo, 30px para cima
+    const margemHorizontal = 80
+    const margemCima = 30
+    const margemBaixo = 300
+
+    return {
+      nome: nome.str,
+      x: nome.x - margemHorizontal,
+      y: nome.y + margemCima, // y maior = mais acima no PDF
+      w: nome.w + margemHorizontal * 2,
+      h: margemCima + margemBaixo,
+      page: nome.page,
+    }
+  })
+}
+
+/**
+ * Verifica se um elemento está dentro de uma região.
+ */
+function elementoDentroDaRegiao(item: TextItem, regiao: RegiaoProduto): boolean {
+  if (item.page !== regiao.page) return false
+
+  // No PDF, Y maior = mais acima. A região vai de regiao.y (topo) para baixo.
+  // item.y deve estar entre (regiao.y - margemCima) e (regiao.y - margemBaixo)
+  // ou seja: item.y <= regiao.y (topo) E item.y >= regiao.y - h (base)
+  const topoRegiao = regiao.y // Y do topo
+  const baseRegiao = regiao.y - regiao.h // Y da base (mais embaixo = Y menor)
+
+  // item.y deve estar dentro da faixa vertical
+  if (item.y > topoRegiao + 5 || item.y < baseRegiao - 5) return false
+
+  // item.x deve estar dentro da faixa horizontal
+  const centroItemX = item.x + item.w / 2
+  const centroRegiaoX = regiao.x + regiao.w / 2
+  if (Math.abs(centroItemX - centroRegiaoX) > regiao.w / 2) return false
+
+  return true
+}
+
+/**
+ * Reconstrói preço a partir dos fragmentos dentro da região.
+ * Pega o preço mais próximo do nome (menor distância vertical).
+ */
+function reconstruirPrecoPorFragmentos(fragmentos: TextItem[], nomeItem: TextItem): string | null {
+  let melhorPreco: string | null = null
+  let melhorDistancia = Infinity
+
+  for (const frag of fragmentos) {
+    const { isPrice, value } = isPriceItem(frag)
+    if (!isPrice || !value) continue
+
+    // Distância vertical do nome ao preço
+    const distancia = Math.abs(nomeItem.y - frag.y)
+
+    if (distancia < melhorDistancia) {
+      melhorDistancia = distancia
+      melhorPreco = value
+    }
+  }
+
+  return melhorPreco
+}
+
+/**
+ * Encontra unidade de venda dentro dos fragmentos.
+ */
+function encontrarUnidade(fragmentos: TextItem[]): string | null {
+  for (const frag of fragmentos) {
+    const unidade = extractUnit(frag.str) || extractStandaloneUnit(frag.str)
+    if (unidade) return unidade
+  }
+  return null
+}
+
+/**
+ * Encontra descrição dentro dos fragmentos (texto entre nome e preço).
+ */
+function encontrarDescricao(fragmentos: TextItem[], nomeItem: TextItem, precoItem: TextItem | null): string | null {
+  if (!precoItem) return null
+
+  for (const frag of fragmentos) {
+    if (frag === nomeItem || frag === precoItem) continue
+    // Descrição está entre nome (Y maior) e preço (Y menor)
+    if (frag.y < nomeItem.y && frag.y > precoItem.y) {
+      if (/(\d+\s*(?:ml|kg|g|l|un|cx|pct|dz))/i.test(frag.str) || frag.str.length < 30) {
+        return frag.str
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * Calcula pontuação de confiança do produto extraído.
+ */
+function calcularConfiancaProduto(params: {
+  nome: string
+  preco: string | null
+  unidade: string | null
+  quantidadeFragmentos: number
+}): number {
+  let confianca = 0.3
+  if (params.nome && params.nome.length >= 3) confianca += 0.3
+  if (params.preco) confianca += 0.2
+  if (params.unidade) confianca += 0.1
+  if (params.quantidadeFragmentos >= 2) confianca += 0.1
+  return Math.min(Number(confianca.toFixed(2)), 1)
+}
+
+/**
+ * Parser híbrido: cria regiões a partir de nomes e busca preços dentro.
+ * Mais preciso para layouts em grade (3x3, 2x4, etc).
+ */
+function extrairProdutosHibrido(items: TextItem[]): ProdutoExtraido[] {
+  const nomes = identificarNomesDeProdutos(items)
+  const regioes = criarRegioesPorProdutos(nomes)
+
+  const produtos: ProdutoExtraido[] = []
+  const usedPrecos = new Set<string>() // evita preço duplicado
+
+  for (let i = 0; i < nomes.length; i++) {
+    const nomeItem = nomes[i]
+    const regiao = regioes[i]
+
+    // Fragmentos dentro da região
+    const fragmentos = items.filter(item => elementoDentroDaRegiao(item, regiao))
+
+    // Reconstrói preço
+    let precoRaw = reconstruirPrecoPorFragmentos(fragmentos, nomeItem)
+
+    // Se não achou preço na região, busca o preço mais próximo global
+    if (!precoRaw) {
+      let melhorDistancia = Infinity
+      for (const item of items) {
+        const { isPrice, value } = isPriceItem(item)
+        if (!isPrice || !value) continue
+        if (usedPrecos.has(value + item.x + item.y)) continue
+        if (item.page !== nomeItem.page) continue
+
+        const dx = Math.abs((item.x + item.w / 2) - (nomeItem.x + nomeItem.w / 2))
+        const dy = Math.abs(item.y - nomeItem.y)
+        if (dx < 200 && dy < 300) {
+          const dist = dx * 2 + dy
+          if (dist < melhorDistancia) {
+            melhorDistancia = dist
+            precoRaw = value
+          }
+        }
+      }
+    }
+
+    if (!precoRaw) continue
+
+    // Marca preço como usado
+    const precoItem = fragmentos.find(f => {
+      const { isPrice, value } = isPriceItem(f)
+      return isPrice && value === precoRaw
+    })
+    if (precoItem) {
+      usedPrecos.add(precoRaw + precoItem.x + precoItem.y)
+    }
+
+    // Encontra descrição e unidade
+    const descricao = encontrarDescricao(fragmentos, nomeItem, precoItem || null)
+    const unidade = encontrarUnidade(fragmentos) || extractUnit(nomeItem.str) || extractStandaloneUnit(nomeItem.str)
+
+    // Limpa nome
+    const nomeLimpo = nomeItem.str
+      .replace(/\s+(kg|g|ml|l|unidade|pacote|sachê|bandeja|garrafa|rolo[s]?|cx|caixa[s]?)\s*$/i, '')
+      .trim()
+
+    const confianca = calcularConfiancaProduto({
+      nome: nomeLimpo,
+      preco: precoRaw,
+      unidade,
+      quantidadeFragmentos: fragmentos.length,
+    })
+
+    produtos.push({
+      nome: nomeLimpo,
+      marca: null,
+      preco: normalizarPreco(precoRaw),
+      unidade,
+      descricao,
+    })
+  }
+
+  // Dedup
+  const seen = new Set<string>()
+  return produtos.filter(p => {
+    const key = `${normalizeForDedup(p.nome)}|${p.preco}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 /**
  * Função principal: extrai encarte estruturado com layout visual.
- * Combina parser visual (clustering espacial) com parser de texto (fallback).
+ * Combina 3 métodos: parser de texto, parser visual (preço→nome), parser híbrido (nome→preço).
+ * Escolhe o que extrair mais produtos.
  */
 export async function extrairEncarteEstruturado(pdfBuffer: Buffer | Uint8Array): Promise<EncarteEstruturado> {
-  const { produtos, textoBruto, totalPaginas, metodoUsado } = await extrairProdutosDoPDF(pdfBuffer)
+  // ── Método 1: parser de texto (PDFParse + pdfjs-dist) ──
+  const { produtos: produtosTexto, textoBruto, totalPaginas, metodoUsado } = await extrairProdutosDoPDF(pdfBuffer)
 
-  // Tenta extrair header e contato dos itens com coordenadas
   let mercado: string | null = null
   let titulo: string | null = null
   let contato: EncarteEstruturado['contato'] = {}
+  let melhoresProdutos = produtosTexto
+  let melhorMetodo = metodoUsado
 
-  // Se o método foi pdfjs-dist ou OCR, tenta extrair itens visuais
+  // ── Métodos 2 e 3: parsers visuais (precisam de coordenadas) ──
   try {
     const { items } = await extractTextItems(pdfBuffer)
+
+    // Extrai header e contato
     const header = extrairHeader(items)
     mercado = header.mercado
     titulo = header.titulo
     contato = extrairContato(items)
 
-    // Se parser visual extrair mais produtos que o parser de texto, usa ele
+    // Método 2: parser visual (preço → nome)
     const produtosVisuais = extrairProdutosVisuais(items)
-    if (produtosVisuais.length > produtos.length) {
-      console.log(`[pdf-parser] Parser visual extraiu ${produtosVisuais.length} produtos (vs ${produtos.length} do parser de texto)`)
-      return {
-        mercado,
-        titulo,
-        produtos: produtosVisuais,
-        contato,
-        totalPaginas,
-        metodoUsado: metodoUsado + '+Visual',
-        textoBruto,
-      }
+    console.log(`[pdf-parser] Parser visual (preço→nome): ${produtosVisuais.length} produtos`)
+
+    // Método 3: parser híbrido (nome → preço com regiões)
+    const produtosHibridos = extrairProdutosHibrido(items)
+    console.log(`[pdf-parser] Parser híbrido (nome→preço): ${produtosHibridos.length} produtos`)
+
+    // Escolhe o método com mais produtos
+    if (produtosHibridos.length > produtosVisuais.length && produtosHibridos.length > produtosTexto.length) {
+      melhoresProdutos = produtosHibridos
+      melhorMetodo = metodoUsado + '+Híbrido'
+      console.log(`[pdf-parser] Método escolhido: Híbrido (${produtosHibridos.length} produtos)`)
+    } else if (produtosVisuais.length > produtosTexto.length) {
+      melhoresProdutos = produtosVisuais
+      melhorMetodo = metodoUsado + '+Visual'
+      console.log(`[pdf-parser] Método escolhido: Visual (${produtosVisuais.length} produtos)`)
+    } else {
+      console.log(`[pdf-parser] Método escolhido: Texto (${produtosTexto.length} produtos)`)
     }
   } catch (e: any) {
-    console.warn('[pdf-parser] Parser visual falhou, usando parser de texto:', e?.message || e)
+    console.warn('[pdf-parser] Parsers visuais falharam, usando parser de texto:', e?.message || e)
   }
 
   return {
     mercado,
     titulo,
-    produtos,
+    produtos: melhoresProdutos,
     contato,
     totalPaginas,
-    metodoUsado,
+    metodoUsado: melhorMetodo,
     textoBruto,
   }
 }
