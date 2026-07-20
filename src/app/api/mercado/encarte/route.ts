@@ -3,7 +3,7 @@ import { getSession } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
-import { extrairProdutosDoPDF } from '@/lib/pdf-parser'
+import { extrairEncarteEstruturado } from '@/lib/pdf-parser'
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,9 +48,20 @@ export async function POST(req: NextRequest) {
     // ── Extrai produtos do PDF usando parser inteligente ─────────────────
     let produtosExtraidos: Array<{ nome: string; marca: string | null; preco: string; unidade: string | null; id?: string }> = []
     let logExtracao = 'PDF recebido. '
+    let mercadoDetectado: string | null = null
+    let tituloDetectado: string | null = null
+    let contato: any = {}
+    let metodoUsado = 'desconhecido'
+    let totalPaginas = 0
     try {
-      const { produtos, textoBruto, totalPaginas, metodoUsado } = await extrairProdutosDoPDF(buffer)
-      console.log(`[encarte upload] parser: ${produtos.length} produtos, texto=${textoBruto.length}chars, paginas=${totalPaginas}, metodo=${metodoUsado}`)
+      const encarteEstruturado = await extrairEncarteEstruturado(buffer)
+      mercadoDetectado = encarteEstruturado.mercado
+      tituloDetectado = encarteEstruturado.titulo
+      contato = encarteEstruturado.contato
+      metodoUsado = encarteEstruturado.metodoUsado
+      totalPaginas = encarteEstruturado.totalPaginas
+      const { produtos, textoBruto } = encarteEstruturado
+      console.log(`[encarte upload] parser: ${produtos.length} produtos, texto=${textoBruto.length}chars, paginas=${totalPaginas}, metodo=${metodoUsado}, mercado=${mercadoDetectado || 'N/A'}`)
 
       // ── Salva os produtos automaticamente no banco ───────────────────
       let salvos = 0
@@ -101,6 +112,11 @@ export async function POST(req: NextRequest) {
       encarte,
       produtos: produtosExtraidos,
       log: logExtracao,
+      mercadoDetectado: mercadoDetectado || null,
+      tituloDetectado: tituloDetectado || null,
+      contato: contato || {},
+      metodoExtracao: metodoUsado || 'desconhecido',
+      totalPaginas: totalPaginas || 0,
     })
   } catch (e: any) {
     console.error('[encarte upload] erro:', e)
