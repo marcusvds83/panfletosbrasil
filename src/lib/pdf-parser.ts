@@ -478,8 +478,22 @@ export function parseProdutosDoTexto(text: string): ProdutoExtraido[] {
  * Extrai texto via pdfjs-dist (sem worker, compatível com serverless/Render).
  * Usa threshold de Y=6 para agrupar itens na mesma linha visual.
  */
+// Helper: pega a instância global do pdfjs (setada pelo pdf-parse) ou importa
+async function getPdfjsLib(): Promise<any> {
+  // pdf-parse v2 seta globalThis.pdfjs com a versão 5.x
+  if (typeof globalThis !== 'undefined' && (globalThis as any).pdfjs) {
+    console.log('[pdf-parser] Usando globalThis.pdfjs (já carregado pelo pdf-parse)')
+    return (globalThis as any).pdfjs
+  }
+  // Fallback: importa dinamicamente a versão 5.x (mesma do pdf-parse)
+  console.log('[pdf-parser] globalThis.pdfjs não encontrado, importando pdfjs-dist v5...')
+  const mod = await import('pdfjs-dist/legacy/build/pdf.mjs').then((m: any) => m.default || m)
+  if (typeof globalThis !== 'undefined') (globalThis as any).pdfjs = mod
+  return mod
+}
+
 async function extractWithPdfjs(pdfBuffer: Buffer | Uint8Array): Promise<{ text: string; pages: number }> {
-  const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs').then((m: any) => m.default || m)
+  const pdfjsLib: any = await getPdfjsLib()
   const uint8 = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer
   const doc = await pdfjsLib.getDocument({
     data: uint8,
@@ -553,8 +567,7 @@ interface TextItem {
  * Extrai todos os itens de texto com coordenadas de um PDF.
  */
 async function extractTextItems(pdfBuffer: Buffer | Uint8Array): Promise<{ items: TextItem[]; pages: number }> {
-  // Usa a MESMA versão do pdf-parse (5.x) para evitar conflito de worker
-  const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs').then((m: any) => m.default || m)
+  const pdfjsLib: any = await getPdfjsLib()
 
   const uint8 = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer
   const doc = await pdfjsLib.getDocument({
@@ -1087,7 +1100,15 @@ export async function extrairEncarteEstruturado(pdfBuffer: Buffer | Uint8Array):
 
   // ── Métodos 2 e 3: parsers visuais (precisam de coordenadas) ──
   try {
-    const { items } = await extractTextItems(pdfBuffer)
+    console.log('[pdf-parser] Iniciando parsers visuais (extrair itens com coordenadas)...')
+    const { items, pages } = await extractTextItems(pdfBuffer)
+    console.log(`[pdf-parser] Itens extraídos: ${items.length} em ${pages} página(s)`)
+    if (items.length > 0) {
+      console.log(`[pdf-parser] Primeiros 5 itens: ${items.slice(0, 5).map(i => `"${i.str}" x=${i.x} y=${i.y}`).join(', ')}`)
+      const precos = items.filter(i => isPriceItem(i).isPrice)
+      console.log(`[pdf-parser] Preços encontrados nos itens: ${precos.length}`)
+      precos.slice(0, 10).forEach(p => console.log(`  - "${p.str}" x=${p.x} y=${p.y} page=${p.page}`))
+    }
 
     // Extrai header e contato
     const header = extrairHeader(items)
@@ -1232,7 +1253,7 @@ export async function extrairProdutosDoPDF(pdfBuffer: Buffer | Uint8Array): Prom
  * para PDFs escaneados/imagem onde pdf-parse e pdfjs-dist não extraem texto.
  */
 async function extractWithOCR(pdfBuffer: Buffer | Uint8Array): Promise<{ text: string; pages: number }> {
-  const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs').then((m: any) => m.default || m)
+  const pdfjsLib: any = await getPdfjsLib()
   const { createWorker } = await import('tesseract.js')
 
   const uint8 = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer
