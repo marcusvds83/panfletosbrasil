@@ -479,7 +479,7 @@ export function parseProdutosDoTexto(text: string): ProdutoExtraido[] {
  * Usa threshold de Y=6 para agrupar itens na mesma linha visual.
  */
 async function extractWithPdfjs(pdfBuffer: Buffer | Uint8Array): Promise<{ text: string; pages: number }> {
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js').then((m: any) => m.default || m)
+  const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs').then((m: any) => m.default || m)
   const uint8 = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer
   const doc = await pdfjsLib.getDocument({
     data: uint8,
@@ -553,7 +553,9 @@ interface TextItem {
  * Extrai todos os itens de texto com coordenadas de um PDF.
  */
 async function extractTextItems(pdfBuffer: Buffer | Uint8Array): Promise<{ items: TextItem[]; pages: number }> {
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js').then((m: any) => m.default || m)
+  // Usa a MESMA versão do pdf-parse (5.x) para evitar conflito de worker
+  const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs').then((m: any) => m.default || m)
+
   const uint8 = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer
   const doc = await pdfjsLib.getDocument({
     data: uint8,
@@ -575,9 +577,9 @@ async function extractTextItems(pdfBuffer: Buffer | Uint8Array): Promise<{ items
         x: item.transform[4],
         y: item.transform[5],
         w: item.width || 0,
-        h: item.height || 10,
+        h: Math.abs(item.transform[3]) || 10,
         page: i,
-        fontSize: item.height || 10,
+        fontSize: Math.abs(item.transform[3]) || 10,
       })
     }
   }
@@ -743,16 +745,23 @@ function extrairProdutosVisuais(items: TextItem[]): ProdutoExtraido[] {
 
       // Nome deve estar acima do preço (dy > 0) e próximo horizontalmente
       // Ou na mesma linha (|dy| < 15)
+      // Fórmula do spec: peso 2x para horizontal, 1x para vertical
+      const centroNomeX = nome.x + nome.w / 2
+      const centroPrecoX = precoItem.x + precoItem.w / 2
+      const distHorizontal = Math.abs(centroNomeX - centroPrecoX)
+      const distVertical = Math.abs(nome.y - precoItem.y)
+
       let distancia: number
-      if (dy > 0 && dy < 100 && dx < 150) {
-        // Nome acima do preço — ideal
-        distancia = dy + dx * 0.3
+      if (dy > 0 && dy < 260 && distHorizontal < 150) {
+        // Nome acima do preço — ideal (região do card)
+        // peso: horizontal * 2 + vertical
+        distancia = distHorizontal * 2 + distVertical
       } else if (Math.abs(dy) < 15 && nome.x < precoItem.x) {
         // Nome à esquerda do preço na mesma linha
-        distancia = dx
-      } else if (dy > 0 && dy < 200 && dx < 250) {
+        distancia = distHorizontal * 2 + distVertical
+      } else if (dy > 0 && dy < 200 && distHorizontal < 250) {
         // Nome mais distante acima — ainda possível
-        distancia = dy + dx * 0.5
+        distancia = distHorizontal * 2 + distVertical * 1.5
       } else {
         continue
       }
@@ -969,8 +978,7 @@ export async function extrairProdutosDoPDF(pdfBuffer: Buffer | Uint8Array): Prom
  * para PDFs escaneados/imagem onde pdf-parse e pdfjs-dist não extraem texto.
  */
 async function extractWithOCR(pdfBuffer: Buffer | Uint8Array): Promise<{ text: string; pages: number }> {
-  // Importa dinamicamente para não pesar o build se não for usado
-  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.js').then((m: any) => m.default || m)
+  const pdfjsLib: any = await import('pdfjs-dist/legacy/build/pdf.mjs').then((m: any) => m.default || m)
   const { createWorker } = await import('tesseract.js')
 
   const uint8 = pdfBuffer instanceof Buffer ? new Uint8Array(pdfBuffer) : pdfBuffer
