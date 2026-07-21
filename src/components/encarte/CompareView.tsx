@@ -49,15 +49,19 @@ export default function CompareView({ sessionId, onAddToList }: CompareViewProps
   const [comparacoes, setComparacoes] = useState<Comparacao[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [stats, setStats] = useState<{ totalProdutos: number; nomesUnicos: number; comparacoes: number; mercadosEnvolvidos: number } | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    api<{ comparacoes: Comparacao[] }>('/api/comparar')
+    api<{ comparacoes: Comparacao[]; stats?: any }>('/api/comparar')
       .then((d) => {
-        if (!cancelled) setComparacoes(d.comparacoes)
+        if (!cancelled) {
+          setComparacoes(d.comparacoes || [])
+          if (d.stats) setStats(d.stats)
+        }
       })
       .catch((e) => {
-        if (!cancelled) setError(e.message)
+        if (!cancelled) setError(e.message || 'Erro ao carregar comparações')
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -99,7 +103,13 @@ export default function CompareView({ sessionId, onAddToList }: CompareViewProps
     return (
       <div className="text-center py-16 text-gray-400">
         <TrendingDown className="h-10 w-10 mx-auto mb-3 opacity-50" />
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-red-500 mb-2">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="text-xs text-red-600 hover:underline mt-2"
+        >
+          Tentar novamente
+        </button>
       </div>
     )
   }
@@ -118,11 +128,17 @@ export default function CompareView({ sessionId, onAddToList }: CompareViewProps
         <h2 className="text-lg font-semibold text-gray-700 mb-1">
           Nenhuma comparação disponível
         </h2>
-        <p className="text-sm text-gray-400 max-w-sm mx-auto">
-          Para comparar preços, são necessários produtos com o mesmo nome em
-          diferentes mercados. Cadastre encartes e produtos nos painéis dos
-          mercados.
+        <p className="text-sm text-gray-400 max-w-sm mx-auto mb-4">
+          Para comparar preços, são necessários pelo menos 2 mercados na mesma
+          cidade com produtos de nome igual nos seus encartes.
         </p>
+        {stats && (
+          <div className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3 max-w-xs mx-auto">
+            <p>Produtos cadastrados: {stats.totalProdutos}</p>
+            <p>Nomes únicos: {stats.nomesUnicos}</p>
+            <p>Mercados com produtos: {stats.mercadosEnvolvidos}</p>
+          </div>
+        )}
       </motion.div>
     )
   }

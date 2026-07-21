@@ -1,21 +1,103 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-export async function GET() {
+/**
+ * GET /api/comparar
+ *
+ * Compara preços de produtos entre mercados.
+ *
+ * Regras:
+ * - Só compara produtos com o MESMO nome normalizado
+ * - Produtos devem ser de mercados DIFERENTES (pelo menos 2)
+ * - Se ?cidade=X for passado, filtra só mercados dessa cidade
+ * - Ordena por menor preço primeiro
+ *
+ * Query params:
+ *   ?cidade=São Paulo    → filtra só mercados de São Paulo
+ *   ?estado=SP           → filtra só mercados de SP
+ *   ?mercadoId=123       → filtra só produtos de um mercado específico
+ */
+export async function GET(req: NextRequest) {
   try {
-    const produtos = await db.produto.findAll()
+    const { searchParams } = new URL(req.url)
+    const cidadeFiltro = searchParams.get('cidade')
+    const estadoFiltro = searchParams.get('estado')
+    const mercadoIdFiltro = searchParams.get('mercadoId')
 
+    console.log(`[comparar] Filtros: cidade=${cidadeFiltro || 'todas'}, estado=${estadoFiltro || 'todos'}, mercadoId=${mercadoIdFiltro || 'nenhum'}`)
+
+    // Busca todos os produtos (findAll já traz mercado com cidade/estado)
+    const produtos = await db.produto.findAll()
+    console.log(`[comparar] Total de produtos encontrados: ${produtos.length}`)
+
+    // Filtra por cidade/estado se passado
+    let produtosFiltrados = produtos
+    if (cidadeFiltro) {
+      produtosFiltrados = produtosFiltrados.filter((p: any) =>
+        p.mercado?.cidade?.toLowerCase() === cidadeFiltro.toLowerCase()
+      )
+      console.log(`[comparar] Após filtro cidade "${cidadeFiltro}": ${produtosFiltrados.length} produtos`)
+    }
+    if (estadoFiltro) {
+      produtosFiltrados = produtosFiltrados.filter((p: any) =>
+        p.mercado?.estado?.toUpperCase() === estadoFiltro.toUpperCase()
+      )
+      console.log(`[comparar] Após filtro estado "${estadoFiltro}": ${produtosFiltrados.length} produtos`)
+    }
+    if (mercadoIdFiltro) {
+      produtosFiltrados = produtosFiltrados.filter((p: any) => p.mercadoId === mercadoIdFiltro)
+    }
+
+    // Filtra produtos sem preço válido
+    produtosFiltrados = produtosFiltrados.filter((p: any) => {
+      if (!p.preco) return false
+      const precoNum = parseFloat(String(p.preco).replace(/[^\d,]/g, '').replace(',', '.')) || 0
+      return precoNum > 0
+    })
+    console.log(`[comparar] Produtos com preço válido: ${produtosFiltrados.length}`)
+
+    // Agrupa por nome normalizado
     const grouped: Record<string, any> = {}
-    for (const p of produtos) {
-      const key = (p.normalizado || p.nome.toLowerCase().trim()) as string
-      if (!grouped[key]) grouped[key] = { nome: key, produtos: [] }
-      const precoNum = parseFloat(p.preco.replace(/[^\d,]/g, '').replace(',', '.')) || 0
-      grouped[key].produtos.push({
-        id: p.id, nome: p.nome, marca: p.marca,
-        preco: p.preco, precoNum, unidade: p.unidade, mercado: p.mercado,
+    for (const p of produtosFiltrados as any[]) {
+      // Normaliza nome: lowercase, sem acento, sem espaços extras
+      const nomeNormalizado = (p.normalizado || p.nome || '')
+        .toLowerCase()
+        .trim()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // remove acentos
+        .replace(/\s+/g, ' ')
+
+      if (!nomeNormalizado || nomeNormalizado.length < 2) continue
+
+      if (!grouped[nomeNormalizado]) {
+        grouped[nomeNormalizado] = {
+          nome: nomeNormalizado,
+          nomeOriginal: p.nome,
+          produtos: [],
+        }
+      }
+
+      const precoNum = parseFloat(String(p.preco).replace(/[^\d,]/g, '').replace(',', '.')) || 0
+
+      grouped[nomeNormalizado].produtos.push({
+        id: p.id,
+        nome: p.nome,
+        marca: p.marca || null,
+        preco: p.preco,
+        precoNum,
+        unidade: p.unidade || null,
+        mercado: {
+          id: p.mercado?.id || p.mercadoId || '',
+          nome: p.mercado?.nome || 'Desconhecido',
+          cidade: p.mercado?.cidade || '',
+          estado: p.mercado?.estado || '',
+        },
       })
     }
 
+    console.log(`[comparar] Grupos de produtos (nomes únicos): ${Object.keys(grouped).length}`)
+
+    // Só mantém grupos com 2+ mercados diferentes
     const comparacoes = Object.values(grouped)
       .filter((group: any) => {
         const marketIds = new Set((group.produtos as any[]).map((p: any) => p.mercado.id))
@@ -23,13 +105,27 @@ export async function GET() {
       })
       .map((group: any) => ({
         normalizado: group.nome,
-        nome: group.produtos[0]?.nome || group.nome,
+        nome: group.nomeOriginal,
         produtos: group.produtos.sort((a: any, b: any) => a.precoNum - b.precoNum),
       }))
       .sort((a: any, b: any) => a.normalizado.localeCompare(b.normalizado))
 
-    return NextResponse.json({ comparacoes })
-  } catch {
-    return NextResponse.json({ erro: 'Erro ao comparar' }, { status: 500 })
+    console.log(`[comparar] Comparações (2+ mercados): ${comparacoes.length}`)
+
+    // Estatísticas para debug
+    const stats = {
+      totalProdutos: produtosFiltrados.length,
+      nomesUnicos: Object.keys(grouped).length,
+      comparacoes: comparacoes.length,
+      mercadosEnvolvidos: new Set(
+        comparacoes.flatMap((c: any) => c.produtos.map((p: any) => p.mercado.id))
+      ).size,
+    }
+    console.log(`[comparar] Stats:`, stats)
+
+    return NextResponse.json({ comparacoes, stats })
+  } catch (e: any) {
+    console.error('[comparar] erro:', e)
+    return NextResponse.json({ erro: 'Erro ao comparar: ' + String(e?.message || e) }, { status: 500 })
   }
 }
