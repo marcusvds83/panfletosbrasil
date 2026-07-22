@@ -69,9 +69,10 @@ function formatBRL(val: number): string {
 
 interface MyListViewProps {
   sessionId: string
+  refreshKey?: number // quando muda, recarrega a lista
 }
 
-export default function MyListView({ sessionId }: MyListViewProps) {
+export default function MyListView({ sessionId, refreshKey = 0 }: MyListViewProps) {
   const [items, setItems] = useState<ListaItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -108,7 +109,7 @@ export default function MyListView({ sessionId }: MyListViewProps) {
 
   useEffect(() => {
     fetchList()
-  }, [fetchList])
+  }, [fetchList, refreshKey])
 
   // Group by mercadoNome, coleta cidades únicas por grupo
   const grouped = useMemo(() => {

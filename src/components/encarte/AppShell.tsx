@@ -176,6 +176,7 @@ export default function AppShell() {
   const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sessionId] = useState<string>(() => getSessionId())
+  const [listaRefreshKey, setListaRefreshKey] = useState(0)
 
   // ── Auth check ──────────────────────────────────────────────────────────
   const checkAuth = useCallback(async () => {
@@ -245,6 +246,7 @@ export default function AppShell() {
           body: JSON.stringify({ sessionId, ...item }),
         })
         toast.success(`"${item.nome}" adicionado à lista`)
+        setListaRefreshKey(k => k + 1) // força recarga da lista
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Erro ao adicionar')
       }
@@ -268,7 +270,7 @@ export default function AppShell() {
       case 'comparar':
         return <CompareView sessionId={sessionId} onAddToList={handleAddToList} />
       case 'lista':
-        return <MyListView sessionId={sessionId} />
+        return <MyListView sessionId={sessionId} refreshKey={listaRefreshKey} />
       case 'mercado':
         return <MarketPanel onLogout={handleLogout} onLogin={checkAuth} />
       case 'conta':
