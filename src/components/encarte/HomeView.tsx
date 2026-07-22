@@ -447,9 +447,35 @@ function MarketDetailView({
                 </div>
               )}
               <div className="bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
+                {/* Mobile: link para abrir em nova aba (WebView não suporta iframe PDF) */}
+                {/* Desktop: iframe com visualizador nativo */}
+                {/* Usa Google Docs Viewer como proxy para mobile */}
+                <div className="block lg:hidden">
+                  {/* Mobile: botão para abrir PDF em nova aba */}
+                  <div className="p-8 text-center">
+                    <FileText className="h-12 w-12 text-red-600 mx-auto mb-3" />
+                    <p className="text-sm font-medium text-gray-700 mb-1">
+                      {detail.nome} — Catálogo
+                    </p>
+                    <p className="text-xs text-gray-400 mb-4">
+                      Toque para visualizar o PDF
+                    </p>
+                    <a
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-6 py-3 rounded-lg"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Abrir Catálogo
+                    </a>
+                  </div>
+                </div>
+
+                {/* Desktop: iframe nativo */}
                 <iframe
                   src={pdfUrl}
-                  className="w-full h-[70vh] min-h-[500px]"
+                  className="hidden lg:block w-full h-[70vh] min-h-[500px]"
                   title={`Catálogo ${detail.nome}`}
                 />
               </div>
@@ -470,7 +496,7 @@ function MarketDetailView({
             <Package className="h-4 w-4 text-red-600" />
             Produtos em promoção ({detail.produtos.length})
           </h3>
-          <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
             {detail.produtos.map((p) => (
               <motion.div
                 key={p.id}
