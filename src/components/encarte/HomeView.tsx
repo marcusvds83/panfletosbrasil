@@ -447,11 +447,8 @@ function MarketDetailView({
                 </div>
               )}
               <div className="bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
-                {/* Mobile: link para abrir em nova aba (WebView não suporta iframe PDF) */}
-                {/* Desktop: iframe com visualizador nativo */}
-                {/* Usa Google Docs Viewer como proxy para mobile */}
+                {/* Mobile: botão para abrir PDF (WebView não suporta iframe) */}
                 <div className="block lg:hidden">
-                  {/* Mobile: botão para abrir PDF em nova aba */}
                   <div className="p-8 text-center">
                     <FileText className="h-12 w-12 text-red-600 mx-auto mb-3" />
                     <p className="text-sm font-medium text-gray-700 mb-1">
@@ -462,8 +459,7 @@ function MarketDetailView({
                     </p>
                     <a
                       href={pdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      download={`${detail.nome}_catalogo.pdf`}
                       className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-6 py-3 rounded-lg"
                     >
                       <FileText className="h-4 w-4" />

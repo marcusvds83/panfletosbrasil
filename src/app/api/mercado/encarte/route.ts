@@ -5,6 +5,15 @@ import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { extrairEncarteEstruturado } from '@/lib/pdf-parser'
 
+/**
+ * O PDF é armazenado em DUAS formas:
+ * 1. /tmp/uploads/ — para acesso rápido durante a sessão (efêmero, some no deploy)
+ * 2. pdfBase64 no Firestore — persiste entre deploys (até 1MB, limite do Firestore)
+ *
+ * Quando o /tmp é apagado (deploy), o endpoint /api/encarte/[id]/pdf
+ * reconstrói o arquivo a partir do base64 no Firestore.
+ */
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession()
@@ -29,15 +38,30 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer())
     const filename = `encarte_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+
+    // Salva no /tmp (efêmero) para acesso rápido
     const uploadsDir = '/tmp/uploads'
     await mkdir(uploadsDir, { recursive: true })
     await writeFile(path.join(uploadsDir, filename), buffer)
+
+    // Salva como base64 no Firestore (persiste entre deploys)
+    // Firestore permite até 1MB por documento. PDFs maiores que ~700KB
+    // não serão salvos no Firestore (só no /tmp, que é efêmero).
+    const pdfBase64 = buffer.length < 700 * 1024
+      ? buffer.toString('base64')
+      : null
+
+    if (!pdfBase64) {
+      console.warn(`[encarte upload] PDF muito grande (${buffer.length} bytes) — não será salvo no Firestore, apenas no /tmp (efêmero)`)
+    }
 
     // Cria o encarte com status "processando"
     const encarte: any = await db.encarte.create({
       mercadoId: session.id,
       titulo,
       pdfPath: filename,
+      pdfBase64,
+      pdfSize: buffer.length,
       dataInicio,
       dataFim,
       statusExtracao: 'processando',

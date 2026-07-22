@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { readFile } from 'fs/promises'
+import { readFile, writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 
 /**
  * GET /api/encarte/[id]/pdf — serve o PDF do encarte para visualização.
- * Retorna o arquivo PDF com content-type application/pdf.
+ *
+ * Estratégia de recuperação:
+ * 1. Tenta ler do /tmp/uploads/ (rápido, efêmero)
+ * 2. Se não existir (após deploy), reconstrói a partir do pdfBase64 no Firestore
+ * 3. Se não tiver base64, retorna 404
  */
 export async function GET(
   req: NextRequest,
@@ -13,8 +17,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    // Busca o encarte para pegar o pdfPath
-    // Como não temos findUnique por id direto, buscamos via mercados e filtramos
+
+    // Busca o encarte percorrendo mercados
     const mercados = await db.mercado.findMany()
     let encarte: any = null
     for (const m of mercados) {
@@ -34,12 +38,42 @@ export async function GET(
       return NextResponse.json({ erro: 'Encarte sem PDF' }, { status: 404 })
     }
 
+    let buffer: Buffer | null = null
+
+    // ── Tentativa 1: ler do /tmp (rápido) ──
     const filePath = path.join('/tmp/uploads', encarte.pdfPath)
-    let buffer: Buffer
     try {
       buffer = await readFile(filePath)
+      console.log(`[pdf] Servindo do /tmp: ${encarte.pdfPath} (${buffer.length} bytes)`)
     } catch {
-      return NextResponse.json({ erro: 'Arquivo PDF não encontrado no servidor' }, { status: 404 })
+      // /tmp não tem o arquivo (provável após deploy)
+      console.log(`[pdf] Arquivo não encontrado no /tmp: ${encarte.pdfPath}`)
+    }
+
+    // ── Tentativa 2: reconstruir do base64 no Firestore ──
+    if (!buffer && encarte.pdfBase64) {
+      try {
+        buffer = Buffer.from(encarte.pdfBase64, 'base64')
+        console.log(`[pdf] Reconstruído do Firestore base64: ${buffer.length} bytes`)
+
+        // Re-salva no /tmp para próximas requisições serem mais rápidas
+        try {
+          await mkdir('/tmp/uploads', { recursive: true })
+          await writeFile(filePath, buffer)
+          console.log(`[pdf] Re-salvo no /tmp para cache: ${encarte.pdfPath}`)
+        } catch {
+          // Ignora erro ao re-salvar (pode ser problema de permissão)
+        }
+      } catch (e) {
+        console.error(`[pdf] Erro ao decodificar base64:`, e)
+      }
+    }
+
+    if (!buffer) {
+      return NextResponse.json(
+        { erro: 'PDF não disponível. O arquivo foi perdido durante um deploy do servidor. Peça ao mercado para reenviar o encarte.' },
+        { status: 404 },
+      )
     }
 
     return new NextResponse(buffer, {
@@ -47,6 +81,7 @@ export async function GET(
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="${encarte.titulo || 'encarte'}.pdf"`,
         'Cache-Control': 'public, max-age=3600',
+        'Content-Length': String(buffer.length),
       },
     })
   } catch (e) {

@@ -99,6 +99,13 @@ public class MainActivity extends Activity {
 
                     // URLs do proprio app e Firebase: carregar no WebView
                     if (url.startsWith(APP_URL) || url.contains("firebaseapp.com")) {
+                        // Exceção: PDFs devem abrir no navegador externo (WebView não renderiza PDF)
+                        if (url.contains("/api/encarte/") && url.endsWith("/pdf")) {
+                            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+                            startActivity(intent);
+                            return true;
+                        }
                         return false;
                     }
 
