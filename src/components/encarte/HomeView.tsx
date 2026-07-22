@@ -447,7 +447,7 @@ function MarketDetailView({
                 </div>
               )}
               <div className="bg-gray-100 rounded-xl overflow-hidden border border-gray-200">
-                {/* Mobile: botão para abrir PDF (WebView não suporta iframe) */}
+                {/* Mobile: botão para abrir visualizador dentro do app */}
                 <div className="block lg:hidden">
                   <div className="p-8 text-center">
                     <FileText className="h-12 w-12 text-red-600 mx-auto mb-3" />
@@ -455,11 +455,10 @@ function MarketDetailView({
                       {detail.nome} — Catálogo
                     </p>
                     <p className="text-xs text-gray-400 mb-4">
-                      Toque para visualizar o PDF
+                      Toque para visualizar o catálogo completo
                     </p>
                     <a
-                      href={pdfUrl}
-                      download={`${detail.nome}_catalogo.pdf`}
+                      href={`/pdf-viewer?id=${detail.encartes.find((e) => e.pdfPath)?.id || ''}`}
                       className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-6 py-3 rounded-lg"
                     >
                       <FileText className="h-4 w-4" />
