@@ -52,7 +52,7 @@ interface ListaItem {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function parsePreco(preco: string | null | undefined): number {
-  if (!preco) return 0
+  if (!preco || typeof preco !== 'string') return 0
   return (
     parseFloat(preco.replace(/[^\d,]/g, '').replace(',', '.')) || 0
   )
@@ -305,7 +305,7 @@ export default function MyListView({ sessionId, refreshKey = 0 }: MyListViewProp
         const waypoints = Object.entries(grouped).map(([nome, g]) => {
           const cidade = [...g.cidades][0] || ''
           // Remove a barra e estado do formato "Cidade/UF" para ficar mais limpo
-          const cidadeLimpa = cidade.replace(/\/[A-Z]{2}$/, '')
+          const cidadeLimpa = typeof cidade === 'string' ? cidade.replace(/\/[A-Z]{2}$/, '') : ''
           return cidadeLimpa ? `${nome}, ${cidadeLimpa}` : nome
         })
 
@@ -351,7 +351,7 @@ export default function MyListView({ sessionId, refreshKey = 0 }: MyListViewProp
               {[...group.cidades][0] && (
                 <a
                   href={`https://www.google.com/maps/search/${encodeURIComponent(
-                    `${market}, ${[...group.cidades][0].replace(/\/[A-Z]{2}$/, '')}`
+                    `${market}, ${typeof [...group.cidades][0] === 'string' ? [...group.cidades][0].replace(/\/[A-Z]{2}$/, '') : ''}`
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
