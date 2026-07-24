@@ -2,22 +2,52 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { db } from '@/lib/db'
 
+/**
+ * BI do Mercado — retorna métricas APENAS do mercado logado.
+ *
+ * Cada empresa deve ver SOMENTE os cliques/visualizações dos seus próprios
+ * produtos. O filtro é feito por `session.id` (ID único do mercado logado).
+ *
+ * Logs detalhados adicionados para diagnosticar caso todas as empresas
+ * estejam vendo a mesma contagem.
+ */
 export async function GET() {
   try {
     const session = await getSession()
-    if (!session || session.tipo !== 'mercado') return NextResponse.json({ erro: 'Não autorizado' }, { status: 401 })
+    if (!session || session.tipo !== 'mercado') {
+      return NextResponse.json({ erro: 'Não autorizado' }, { status: 401 })
+    }
 
-    // Todos os registros de interação deste mercado
-    const todos = await db.cliqueProduto.findByMarket(session.id)
+    const mercadoId = session.id
+    console.log(`[bi] mercadoId=${mercadoId} email=${session.email} — buscando cliques`)
 
-    // Separar visualizações de mercado vs cliques em produto
-    const visualizacoes = todos.filter((c: any) => c.tipo === 'mercado')
-    const cliquesProduto = todos.filter((c: any) => c.tipo !== 'mercado' && c.produtoId)
+    // Todos os registros de interação deste mercado (filtrado por mercadoId)
+    const todos = await db.cliqueProduto.findByMarket(mercadoId)
 
-    // Top 10 produtos mais clicados (somente cliques de produto)
+    console.log(`[bi] mercadoId=${mercadoId} total de registros encontrados: ${todos.length}`)
+
+    // Separar visualizações de mercado vs cliques em produto.
+    // Defensivo: valida tipo e produtoId antes de filtrar.
+    const visualizacoes = todos.filter(
+      (c: any) => c && typeof c === 'object' && c.tipo === 'mercado'
+    )
+    const cliquesProduto = todos.filter(
+      (c: any) =>
+        c &&
+        typeof c === 'object' &&
+        c.tipo !== 'mercado' &&
+        typeof c.produtoId === 'string' &&
+        c.produtoId.length > 0
+    )
+
+    console.log(`[bi] mercadoId=${mercadoId} visualizacoes=${visualizacoes.length} cliquesProduto=${cliquesProduto.length}`)
+
+    // Top 10 produtos mais clicados (somente cliques de produto deste mercado)
     const counts: Record<string, number> = {}
     for (const c of cliquesProduto) {
-      counts[c.produtoId] = (counts[c.produtoId] || 0) + 1
+      const pid = String(c.produtoId || '')
+      if (!pid) continue
+      counts[pid] = (counts[pid] || 0) + 1
     }
     const topProdutosGrouped = Object.entries(counts)
       .map(([produtoId, cnt]) => ({ produtoId, _count: { id: cnt } }))
@@ -26,30 +56,44 @@ export async function GET() {
 
     const topComNomes = await Promise.all(
       topProdutosGrouped.map(async (tp: any) => {
-        const produto = await db.produto.findUnique(tp.produtoId)
-        return {
-          nome: produto?.nome || 'Desconhecido',
-          marca: produto?.marca || '',
-          cliques: tp._count.id,
+        try {
+          const produto = await db.produto.findUnique(tp.produtoId)
+          // Valida que o produto realmente pertence a este mercado (defensivo)
+          if (produto && produto.mercadoId && produto.mercadoId !== mercadoId) {
+            console.warn(`[bi] produto ${tp.produtoId} pertence a outro mercado (${produto.mercadoId}) — pulando`)
+            return null
+          }
+          return {
+            nome: produto?.nome || 'Desconhecido',
+            marca: produto?.marca || '',
+            cliques: tp._count.id,
+          }
+        } catch {
+          return null
         }
       })
-    )
+    ).then((arr) => arr.filter(Boolean) as { nome: string; marca: string; cliques: number }[])
 
     // Market info
     const mercado = await db.mercado.findUnique({
-      where: { id: session.id },
-      select: { cidade: true, estado: true },
+      where: { id: mercadoId },
+      select: { cidade: true, estado: true, nome: true },
     })
     const regiao = mercado ? `${mercado.cidade}/${mercado.estado}` : ''
 
-    // Interações por semana (TODAS: visualizações + cliques de produto)
+    // Interações por semana (TODAS: visualizações + cliques de produto deste mercado)
     const semanas: Record<string, number> = {}
     for (const c of todos) {
-      const d = new Date(c.criadoEm)
-      const weekStart = new Date(d)
-      weekStart.setDate(d.getDate() - d.getDay())
-      const key = weekStart.toISOString().slice(0, 10)
-      semanas[key] = (semanas[key] || 0) + 1
+      try {
+        const d = new Date(c.criadoEm)
+        if (isNaN(d.getTime())) continue
+        const weekStart = new Date(d)
+        weekStart.setDate(d.getDate() - d.getDay())
+        const key = weekStart.toISOString().slice(0, 10)
+        semanas[key] = (semanas[key] || 0) + 1
+      } catch {
+        continue
+      }
     }
 
     const cliquesSemana = Object.entries(semanas)
@@ -62,7 +106,7 @@ export async function GET() {
     const lastWeek = cliquesSemana.length >= 2 ? cliquesSemana[cliquesSemana.length - 2]?.total || 0 : 0
     const trend = lastWeek > 0 ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : 0
 
-    return NextResponse.json({
+    const payload = {
       topProdutos: topComNomes,
       totalVisualizacoes: visualizacoes.length,
       totalCliquesProdutos: cliquesProduto.length,
@@ -70,7 +114,17 @@ export async function GET() {
       cliquesSemana,
       trend,
       regiao,
-    })
+      // Debug info (não sensível): confirma o filtro no client
+      _debug: {
+        mercadoId,
+        mercadoNome: mercado?.nome || null,
+        totalRegistros: todos.length,
+      },
+    }
+
+    console.log(`[bi] mercadoId=${mercadoId} retornando: visualizacoes=${payload.totalVisualizacoes} cliquesProduto=${payload.totalCliquesProdutos} topProdutos=${payload.topProdutos.length}`)
+
+    return NextResponse.json(payload)
   } catch (err) {
     console.error('[bi] erro:', err)
     return NextResponse.json({ erro: 'Erro ao buscar BI' }, { status: 500 })

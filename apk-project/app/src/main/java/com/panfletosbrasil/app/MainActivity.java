@@ -436,10 +436,52 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    public void onBackPressed() {
+        // Sempre intercepta o botão Voltar.
+        // Pergunta ao JavaScript (window.panfletosBack) se a navegação interna
+        // pode voltar (ex: tab anterior, fechar modal, voltar de detalhe).
+        // Se JS retornar true → tratado internamente, NÃO sai do app.
+        // Se JS retornar false → nada para voltar, deixa o Android sair do app.
+        if (webView != null) {
+            webView.post(() -> {
+                try {
+                    webView.evaluateJavascript(
+                        "(function(){ if(typeof window.panfletosBack==='function'){ return window.panfletosBack(); } return false; })();",
+                        new android.webkit.ValueCallback<String>() {
+                            @Override
+                            public void onReceiveValue(String value) {
+                                boolean handled = "true".equalsIgnoreCase(value != null ? value.trim() : "");
+                                if (!handled) {
+                                    // JS não tratou → sai do app
+                                    MainActivity.super.onBackPressed();
+                                }
+                                // Se handled=true, NÃO faz nada (JS já voltou)
+                            }
+                        }
+                    );
+                } catch (Exception e) {
+                    // Em caso de erro, comportamento padrão (sai do app)
+                    MainActivity.super.onBackPressed();
+                }
+            });
+        } else {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK && webView.canGoBack()) {
-            webView.goBack();
-            return true;
+        // Redundante ao onBackPressed, mas mantido por compatibilidade com
+        // Android antigo. Se o WebView tem histórico real (PDF viewer abriu
+        // uma URL nova), usa webView.goBack().
+        if (keyCode == KeyEvent.KEYCODE_BACK && webView != null && webView.canGoBack()) {
+            // Só chama goBack se houver histórico REAL do WebView (não SPA).
+            // Caso contrário, deixa o onBackPressed tratar via JS.
+            String url = webView.getUrl();
+            if (url != null && !url.equals(APP_URL) && !url.equals(APP_URL + "/")) {
+                webView.goBack();
+                return true;
+            }
         }
         return super.onKeyDown(keyCode, event);
     }

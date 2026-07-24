@@ -6,6 +6,7 @@ import {
   createContext,
   useContext,
   useCallback,
+  useRef,
   type ReactNode,
 } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -179,6 +180,34 @@ export default function AppShell() {
   const [sessionId] = useState<string>(() => getSessionId())
   const [listaRefreshKey, setListaRefreshKey] = useState(0)
 
+  // ── Histórico de tabs para botão Voltar do Android ──────────────────────
+  // Mantém uma pilha de tabs visitadas. Quando o usuário pressiona Voltar no
+  // celular, window.panfletosBack() é chamado pelo Android (MainActivity.java).
+  // Se houver histórico, volta para a tab anterior. Se não, retorna false e o
+  // Android fecha o app.
+  const tabHistoryRef = useRef<TabId[]>(['home'])
+
+  // Setter de tab que registra no histórico (chamado pelo clique do usuário)
+  const navigateToTab = useCallback((next: TabId) => {
+    setTab((current) => {
+      if (current !== next) {
+        tabHistoryRef.current.push(current)
+      }
+      return next
+    })
+  }, [])
+
+  // Volta uma tab no histórico. Retorna true se voltou, false se não há histórico.
+  const goBack = useCallback((): boolean => {
+    const hist = tabHistoryRef.current
+    if (hist.length > 1) {
+      const prev = hist.pop()!
+      setTab(prev)
+      return true
+    }
+    return false
+  }, [])
+
   // ── Auth check ──────────────────────────────────────────────────────────
   const checkAuth = useCallback(async () => {
     try {
@@ -216,6 +245,28 @@ export default function AppShell() {
   useEffect(() => {
     checkAuth()
   }, [checkAuth])
+
+  // ── Botão Voltar do Android (WebView) ──────────────────────────────────
+  // Expõe window.panfletosBack() para o MainActivity.java chamar via
+  // evaluateJavascript. Retorna true se voltou uma tab, false se não há
+  // histórico (Android deve sair do app).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    ;(window as any).panfletosBack = (): boolean => {
+      try {
+        return goBack()
+      } catch {
+        return false
+      }
+    }
+    return () => {
+      try {
+        delete (window as any).panfletosBack
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [goBack])
 
   // ── Logout ─────────────────────────────────────────────────────────────
   const handleLogout = useCallback(async () => {
@@ -391,7 +442,7 @@ export default function AppShell() {
               {mercadoTabs.map((t) => (
                 <button
                   key={t.key}
-                  onClick={() => setTab(t.key)}
+                  onClick={() => navigateToTab(t.key)}
                   className={cn(
                     'px-4 py-2.5 text-sm font-medium transition-colors rounded-t-md',
                     tab === t.key
@@ -437,7 +488,7 @@ export default function AppShell() {
               {mercadoTabs.map((t) => (
                 <button
                   key={t.key}
-                  onClick={() => setTab(t.key)}
+                  onClick={() => navigateToTab(t.key)}
                   className={cn(
                     'flex flex-col items-center justify-center py-1.5 px-3 text-xs transition-colors min-w-[56px]',
                     tab === t.key
@@ -500,7 +551,7 @@ export default function AppShell() {
               {visibleTabs.map((t) => (
                 <button
                   key={t.key}
-                  onClick={() => setTab(t.key)}
+                  onClick={() => navigateToTab(t.key)}
                   className={cn(
                     'px-4 py-2.5 text-sm font-medium transition-colors rounded-t-md',
                     tab === t.key
@@ -547,7 +598,7 @@ export default function AppShell() {
               {visibleTabs.map((t) => (
                 <button
                   key={t.key}
-                  onClick={() => setTab(t.key)}
+                  onClick={() => navigateToTab(t.key)}
                   className={cn(
                     'flex flex-col items-center justify-center py-1.5 px-3 text-xs transition-colors min-w-[56px]',
                     tab === t.key

@@ -81,6 +81,7 @@ interface CliqueProduto {
   produtoId: string
   mercadoId: string
   sessionId: string
+  tipo: string // 'produto' | 'mercado'
   criadoEm: string
 }
 
@@ -382,13 +383,15 @@ export const demoDb = {
 
   cliqueProduto: {
     create: async (data: Record<string, any>) => {
-      cliques.push({
+      const novo: CliqueProduto = {
         id: uid('clique'),
-        produtoId: data.produtoId,
+        produtoId: data.produtoId || '',
         mercadoId: data.mercadoId,
-        sessionId: data.sessionId,
+        sessionId: data.sessionId || 'anon',
+        tipo: data.tipo || 'produto', // ← CORRIGIDO: agora salva 'tipo' (antes era ignorado)
         criadoEm: data.criadoEm || new Date().toISOString(),
-      })
+      }
+      cliques.push(novo)
     },
 
     findByMarket: async (mercadoId: string) => {
