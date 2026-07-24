@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { db } from '@/lib/db'
 
+// CRÍTICO: impede cache do Next.js — cada chamada deve buscar dados frescos.
+// Sem isso, o Next.js pode cachear a resposta e TODAS as empresas veriam o
+// mesmo BI (o da primeira empresa que chamou).
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+
 /**
  * BI do Mercado — retorna métricas APENAS do mercado logado.
  *
@@ -19,6 +26,26 @@ export async function GET() {
     }
 
     const mercadoId = session.id
+
+    // VALIDAÇÃO CRÍTICA: se mercadoId for vazio/undefined, NÃO busca cliques
+    // (evita que o Firestore retorne TODOS os documentos por filtro inválido)
+    if (!mercadoId || typeof mercadoId !== 'string' || mercadoId.trim() === '') {
+      console.error(`[bi] ERRO: session.id inválido para email=${session.email} id=${JSON.stringify(mercadoId)}`)
+      return NextResponse.json(
+        {
+          erro: 'Sessão inválida — faça login novamente',
+          topProdutos: [],
+          totalVisualizacoes: 0,
+          totalCliquesProdutos: 0,
+          cliquesPorRegiao: [],
+          cliquesSemana: [],
+          trend: 0,
+          regiao: '',
+        },
+        { status: 200 }
+      )
+    }
+
     console.log(`[bi] mercadoId=${mercadoId} email=${session.email} — buscando cliques`)
 
     // Todos os registros de interação deste mercado (filtrado por mercadoId)
@@ -119,12 +146,18 @@ export async function GET() {
         mercadoId,
         mercadoNome: mercado?.nome || null,
         totalRegistros: todos.length,
+        timestamp: new Date().toISOString(),
       },
     }
 
     console.log(`[bi] mercadoId=${mercadoId} retornando: visualizacoes=${payload.totalVisualizacoes} cliquesProduto=${payload.totalCliquesProdutos} topProdutos=${payload.topProdutos.length}`)
 
-    return NextResponse.json(payload)
+    // Headers explícitos para evitar cache em qualquer camada
+    const res = NextResponse.json(payload)
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+    res.headers.set('Pragma', 'no-cache')
+    res.headers.set('Expires', '0')
+    return res
   } catch (err) {
     console.error('[bi] erro:', err)
     return NextResponse.json({ erro: 'Erro ao buscar BI' }, { status: 500 })

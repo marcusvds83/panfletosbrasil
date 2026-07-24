@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Registra cliques e visualizações para o BI do mercado.
  *
@@ -15,7 +17,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { produtoId, mercadoId, sessionId, tipo } = body
 
-    if (!mercadoId) {
+    if (!mercadoId || typeof mercadoId !== 'string') {
       return NextResponse.json({ erro: 'mercadoId obrigatório' }, { status: 400 })
     }
     if (tipo !== 'mercado' && !produtoId) {

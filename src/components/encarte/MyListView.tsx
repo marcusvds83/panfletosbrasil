@@ -51,9 +51,33 @@ interface ListaItem {
 
 function parsePreco(preco: unknown): number {
   try {
-    if (!preco || typeof preco !== 'string') return 0
-    const cleaned = preco.replace(/[^\d,]/g, '').replace(',', '.')
-    const n = parseFloat(cleaned)
+    if (preco === null || preco === undefined || preco === '') return 0
+    // Se já é número, usa direto
+    if (typeof preco === 'number') return Number.isFinite(preco) ? preco : 0
+    // Se não é string, tenta converter
+    let str: string
+    if (typeof preco === 'string') {
+      str = preco
+    } else {
+      try {
+        str = String(preco)
+      } catch {
+        return 0
+      }
+    }
+    // Remove tudo que não é dígito, vírgula ou ponto
+    // Depois substitui vírgula por ponto (formato brasileiro → americano)
+    const cleaned = str.replace(/[^\d,.-]/g, '').replace(',', '.')
+    // Se houver múltiplos pontos (ex: "1.234.56"), remove os primeiros
+    const parts = cleaned.split('.')
+    let normalized: string
+    if (parts.length > 2) {
+      // "1.234.56" → "1234.56"
+      normalized = parts.slice(0, -1).join('') + '.' + parts[parts.length - 1]
+    } else {
+      normalized = cleaned
+    }
+    const n = parseFloat(normalized)
     return Number.isFinite(n) ? n : 0
   } catch {
     return 0

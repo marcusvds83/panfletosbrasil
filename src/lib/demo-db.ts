@@ -395,6 +395,11 @@ export const demoDb = {
     },
 
     findByMarket: async (mercadoId: string) => {
+      // GUARDA: se mercadoId for inválido, retorna array vazio (não todos os cliques)
+      if (!mercadoId || typeof mercadoId !== 'string' || mercadoId.trim() === '') {
+        console.warn('[demo-db.cliqueProduto.findByMarket] mercadoId inválido:', JSON.stringify(mercadoId))
+        return []
+      }
       return cliques
         .filter((c) => c.mercadoId === mercadoId)
         .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm))

@@ -305,6 +305,13 @@ export const db = {
     },
 
     findByMarket: async (mercadoId: string) => {
+      // GUARDA: se mercadoId for inválido, retorna array vazio
+      // CRÍTICO: Firestore com where('campo', '==', undefined) pode retornar
+      // TODOS os documentos — esse guard evita vazamento de dados entre empresas
+      if (!mercadoId || typeof mercadoId !== 'string' || mercadoId.trim() === '') {
+        console.warn('[firestore.cliqueProduto.findByMarket] mercadoId inválido:', JSON.stringify(mercadoId))
+        return []
+      }
       const snap = await getDocs(
         query(collection(firestore as any, COLS.cliques), where('mercadoId', '==', mercadoId))
       )

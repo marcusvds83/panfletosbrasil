@@ -30,15 +30,22 @@ export async function POST(req: NextRequest) {
     let salvos = 0
     for (const item of itens) {
       if (!item.nome || !item.preco) continue
-      const precoNum = parseFloat(String(item.preco).replace(',', '.'))
+      const precoStr = String(item.preco).trim()
+      // Valida que o preço tem algum dígito
+      if (!/\d/.test(precoStr)) continue
+      // Converte para número para validar > 0
+      const precoNum = parseFloat(precoStr.replace(/[^\d,.-]/g, '').replace(',', '.'))
       if (isNaN(precoNum) || precoNum <= 0) continue
       try {
+        // CORREÇÃO: armazena preco como STRING formatada em BRL
+        // (antes era armazenado como número, quebrando o parsePreco no MyListView)
+        const precoFormatado = `R$ ${precoNum.toFixed(2).replace('.', ',')}`
         await db.produto.create({
           mercadoId: session.id,
           encarteId,
           nome: item.nome,
           marca: item.marca || null,
-          preco: precoNum,
+          preco: precoFormatado,
           unidade: item.unidade || 'un',
           normalizado: item.nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''),
           criadoEm: new Date().toISOString(),
